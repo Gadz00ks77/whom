@@ -1,0 +1,256 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  whom
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 30
+  Api:
+    Cors:
+      AllowMethods: "'*'"
+      AllowHeaders: "'*'"
+      AllowOrigin: "'*'"
+
+Resources:
+
+  LandingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: whom-poc-landing
+
+  LogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: whom-poc-logs
+
+  WhomSqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomTickets.fifo
+
+  WhomSqsReferenceQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems.fifo
+
+  WhomSQSReturnQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True 
+      QueueName: WhomReturns.fifo
+
+  whomGenerateTicket:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-ticket-generate/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /tickets/generate/{method}/{identity-object-name}
+            Method: post
+            RequestParameters:
+              - method.request.header.totalchunks
+            Auth:
+              ApiKeyRequired: true
+
+  whomTicketAddChunk:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-ticket-add-chunk/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /tickets/generate/add-chunk
+            Method: post
+            RequestParameters:
+              - method.request.header.ticketguid
+            Auth:
+              ApiKeyRequired: true
+
+  whomTicketSendtoSQS:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-ticket-send-to-queue/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: DynamoDB
+          Properties:
+            Stream: 
+              !GetAtt DynamoWhomTicket.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+            Enabled: true
+
+  whomTicketStartChunkProcess:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-ticket-start-chunk-process/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsQueue.Arn
+            BatchSize: 1
+
+  whomTicketProcessChunk:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-ticket-process-chunk/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: DynamoDB
+          Properties:
+            Stream: 
+              !GetAtt DynamoWhomTickets3Keys.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+            Enabled: true
+
+  whomGenReferences:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-reference-generate/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 256
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueue.Arn
+            BatchSize: 1
+
+  DynamoWhomTicket:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: whom_ticket
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: 
+        - AttributeName: ticket_guid
+          AttributeType: S
+        - AttributeName: ticket_status
+          AttributeType: S
+      GlobalSecondaryIndexes: 
+        - 
+          IndexName: "ticket_status-index"
+          KeySchema: 
+            - 
+              AttributeName: "ticket_status"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+      KeySchema: 
+        - AttributeName: ticket_guid
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+
+  DynamoWhomTickets3Keys:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: whom_ticket_chunk_keys
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: 
+        - AttributeName: ticket_guid
+          AttributeType: S
+        - AttributeName: ticket_chunk_s3key
+          AttributeType: S
+      GlobalSecondaryIndexes: 
+        - 
+          IndexName: "ticket_guid-index"
+          KeySchema: 
+            - 
+              AttributeName: "ticket_guid"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+      KeySchema: 
+        - AttributeName: ticket_chunk_s3key
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+
+  DynamoWhomReferences:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_references
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: system_reference
+          AttributeType: S
+      KeySchema:
+        - AttributeName: system_reference 
+          KeyType: HASH
+
+  DynamoWhomIdentities:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_identities
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: identity_guid
+          AttributeType: S
+        - AttributeName: identity_object_name
+          AttributeType: S
+      GlobalSecondaryIndexes: 
+        - 
+          IndexName: "identity_object_name-index"
+          KeySchema: 
+            - 
+              AttributeName: "identity_object_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+      KeySchema:
+        - AttributeName: identity_guid 
+          KeyType: HASH

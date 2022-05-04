@@ -1,0 +1,4 @@
+venv
+.vscode
+whom-app/.aws-sam
+whom-app/ignore
