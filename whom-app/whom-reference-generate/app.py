@@ -18,6 +18,8 @@ def lambda_handler(event,context):
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
 
+    message = {}
+
     try:
 
         for record in event['Records']:
@@ -27,8 +29,8 @@ def lambda_handler(event,context):
             identity_object_name = reference_object['identity_object']
             ticket_chunk_s3key = reference_object['ticket_chunk_s3key']
 
-            if 'identity_guid' in reference_object:
-                identity_guid = reference_object['identity_guid']
+            if 'identity guid' in reference_object:
+                identity_guid = reference_object['identity guid']
             else:
                 identity_guid = ""
 
@@ -47,65 +49,68 @@ def lambda_handler(event,context):
                 if identity_object['identity_object_name']['S'] != identity_object_name:
                     # USER IS TRYING TO ADD A REFERENCE TO AN IDENTITY THAT IS NOT THIS IDENTITY OBJECT TYPE (e.g. A reference for a LAYER, to an identity for a RISK)
                     # EXIT HERE: PASS A MESSAGE IN THE TICKET THAT THEY'VE COCKED UP
+                    reference_object['identity_guid'] = identity_guid
                     message = {'outcome':'failed','object':reference_object,'reason':'quoted identity object type does not match'}
                     add_sqs_message(j.dumps(message),ticket_chunk_s3key)
                 else:
                     if exist_outcome['result']=='Empty':
                         add_new_reference(system_reference=system_reference,source=source,identity_object=identity_object_name,identity_guid=identity_guid)
-                        modify_identity(reference=system_reference,source_ticket='tbc',identity_guid=identity_guid)
+                        modify_identity(reference=system_reference,source_ticket='tbc',source=source,identity_guid=identity_guid)
+                        reference_object['identity_guid'] = identity_guid
                         message = {'outcome':'success','object':reference_object,'reason':'new reference, added to identity'}
                         add_sqs_message(j.dumps(message),ticket_chunk_s3key)
                     elif exist_outcome['result']=='Reference,Source,Object':
                         # CHECK IF PASSED IDENTITY MATCHES
-                        if exist_outcome['identity_map']['identity_guid']['S'] == identity_guid:
+                        if exist_outcome['identity_map']['M']['identity_guid']['S'] == identity_guid:
+                            reference_object['identity_guid'] = identity_guid
                             message = {'outcome':'success','object':reference_object,'reason':'no action'}
                             add_sqs_message(j.dumps(message),ticket_chunk_s3key)
                             # EXIT HERE: I've seen this before, and it's valid
                         else:
                             # EXIT HERE: I've seen this before, but you've given me the wrong identity_guid
+                            reference_object['identity_guid'] = exist_outcome['identity_map']['M']['identity_guid']['S'] 
                             message = {'outcome':'failed','object':reference_object,'reason':'reference object found but provided identity guid is invalid'}
                             add_sqs_message(j.dumps(message),ticket_chunk_s3key)
                     elif exist_outcome['result'] in ['Reference,Object','Reference,Source','Reference Only']:
-                        if exist_outcome['identity_map']['identity_guid']['S'] == identity_guid:
+                        if exist_outcome['identity_map']['M']['identity_guid']['S'] == identity_guid:
                             modify_reference(source=source,identity_object=identity_object_name,identity_guid=identity_guid)
-                            modify_identity(reference=system_reference,source_ticket='tbc',identity_guid=identity_guid)
+                            modify_identity(reference=system_reference,source_ticket='tbc',source=source,identity_guid=identity_guid)
+                            reference_object['identity_guid'] = exist_outcome['identity_map']['M']['identity_guid']['S'] 
                             message = {'outcome':'success','object':reference_object,'reason':'modified reference and identity objects'}
                             add_sqs_message(j.dumps(message),ticket_chunk_s3key)
                         else:
                             # EXIT HERE: I've seen this before in some capacity, but you've given me the wrong identity_guid
+                            reference_object['identity_guid'] = exist_outcome['identity_map']['M']['identity_guid']['S'] 
                             message = {'outcome':'failed','object':reference_object,'reason':'reference object valid, but identity guid is incorrect'}
                             add_sqs_message(j.dumps(message),ticket_chunk_s3key)
 
             else:
                 # CHECK IF SUPPLIED REFERENCE HAS AN IDENTITY
-                if exist_outcome['result']=='Reference,Source,Object':
-                    # YES - SO USE THAT.
-                    identity_guid = exist_outcome['identity_map']['identity_guid']['S']
-                    # UPDATE REFERENCE OBJECT TO INCLUDE GUID AND 
-                    reference_object['identity_guid'] = identity_guid
-                    message = {'outcome':'success','object':reference_object,'reason':'identity found for system reference & context'}
-                    add_sqs_message(j.dumps(message),ticket_chunk_s3key)                    
-                    # EXIT HERE!
-                else:
-                    # NO - SO;
-                    # 'CREATE IDENTITY'
-                    identity_guid = get_new_identity(identity_object_name=identity_object_name,source_ticket='tbc',source=source,system_reference=system_reference)
-
                 if exist_outcome['result']=='Empty':
+                    identity_guid = get_new_identity(identity_object_name=identity_object_name,source_ticket='tbc',source=source,system_reference=system_reference)
                     add_new_reference(system_reference=system_reference,source=source,identity_object=identity_object_name,identity_guid=identity_guid)
                     reference_object['identity_guid'] = identity_guid
                     message = {'outcome':'success','object':reference_object,'reason':'new reference and identity generated'}
                     add_sqs_message(j.dumps(message),ticket_chunk_s3key)  
+                elif exist_outcome['result']=='Reference,Source,Object':
+                    # YES - SO USE THAT.
+                    identity_guid = exist_outcome['identity_map']['M']['identity_guid']['S']
+                    # UPDATE REFERENCE OBJECT TO INCLUDE GUID AND # EXIT HERE!
+                    reference_object['identity_guid'] = identity_guid
+                    message = {'outcome':'success','object':reference_object,'reason':'identity found for system reference & context'}
+                    add_sqs_message(j.dumps(message),ticket_chunk_s3key)                    
+   
                 else:
+                    # ANY OTHER REFERENCE RESPONSE;
+                    # 'CREATE IDENTITY'
+                    identity_guid = get_new_identity(identity_object_name=identity_object_name,source_ticket='tbc',source=source,system_reference=system_reference)
                     modify_reference(reference=system_reference,source=source,identity_object=identity_object_name,identity_guid=identity_guid)
                     reference_object['identity_guid'] = identity_guid
                     message = {'outcome':'success','object':reference_object,'reason':'new identity generated and added to reference object'}
                     add_sqs_message(j.dumps(message),ticket_chunk_s3key)  
-                    
-        b = bytes(str('success\n'+system_reference), 'utf-8')
-        f = io.BytesIO(b)
-        s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_ticket_process_chunk.log')    
 
+                    
+        outfile(system_reference=j.dumps(message)+'\n\n'+str(event),s3_errors=s3_errors,s3_client=s3_client,timestring=dt_string)
         return {
             'statusCode':200,
             'headers': {
@@ -117,6 +122,7 @@ def lambda_handler(event,context):
                 'result':'success'
             })
         }
+
 
     except Exception as e:
         b = bytes(str(e)+'\n'+str(event), 'utf-8')
@@ -151,22 +157,22 @@ def chk_exists(reference,source,identity_object):
     found['result'] = 'Empty'
 
     if 'Item' in response:
-        for m in response['Item']['Identity Map']['M']:
-            if m['source']['S']==source and m['identity_object']['S']==identity_object:
+        for m in response['Item']['identity_map']['L']:
+            if m['M']['source']['S']==source and m['M']['identity_object']['S']==identity_object:
                 found['result'] = 'Reference,Source,Object'
                 found['identity_map'] = m
-            elif m['source']['S']!=source and m['identity_object']['S']==identity_object:
+            elif m['M']['source']['S']!=source and m['M']['identity_object']['S']==identity_object:
                 found['result'] = 'Reference,Object'
-            elif m['source']['S']==source and m['identity_object']['S']!=identity_object:
+            elif m['M']['source']['S']==source and m['M']['identity_object']['S']!=identity_object:
                 found['result'] = 'Reference,Source'
-            elif m['source']['S']!=source and m['identity_object']['S']!=identity_object:
+            elif m['M']['source']['S']!=source and m['M']['identity_object']['S']!=identity_object:
                 found['result'] = 'Reference Only'
 
     return found
 
 def get_new_identity(identity_object_name,source_ticket,source,system_reference):
 
-    new_identity = str(uuid.uuid4)
+    new_identity = str(uuid.uuid4())
 
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table('whom_identities')
@@ -204,9 +210,9 @@ def add_new_reference(system_reference,source,identity_object,identity_guid):
                 'system_reference':     system_reference,
                 'identity_map': [
                     {
-                        'source':source,
-                        'identity_object':identity_object,
-                        'identity_guid': identity_guid
+                        'source':           source,
+                        'identity_object':  identity_object,
+                        'identity_guid':    identity_guid
                     }
                 ]
                 }
@@ -279,7 +285,7 @@ def modify_identity(reference,source,source_ticket,identity_guid):
     
     response = table.update_item(
         Key={
-            'system_reference':reference
+            'identity_guid':identity_guid
         },
         UpdateExpression="set identity_chain = list_append(identity_chain,:vals)",
         ExpressionAttributeValues={
@@ -301,3 +307,12 @@ def add_sqs_message(content,s3chunkkey):
     messageid = response.get('MessageId')
     
     return messageid
+
+def outfile(system_reference,s3_errors,s3_client,timestring):
+    
+    b = bytes(str('success\n'+system_reference), 'utf-8')
+    f = io.BytesIO(b)
+    s3_client.upload_fileobj(f, s3_errors, f'whom_{timestring}_ticket_process_chunk.log')
+
+    return 0    
+

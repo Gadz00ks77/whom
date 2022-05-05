@@ -12,8 +12,6 @@ def lambda_handler(event,context):
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
 
-#  'NewImage': {'ticket_status': {'S': 'RECEIVED'}, 'identity_object_chunks': {'N': '1'}, 'identity_object_name': {'S': 'RISK'}, 'submit_method': {'S': 'EVENT'}, 'ticket_createdon': {'S': '20220501144120435'}, 'ticket_guid': {'S': '26028ca9-c33a-4d6e-8b0f-9527b8727d7e'}, 'ticket_updatedon': {'S': '20220501144120435'}}, 'SequenceNumber': '1081300000000046551851099', 'SizeBytes': 247, 'StreamViewType': 'NEW_IMAGE'}, 'eventSourceARN': 'arn:aws:dynamodb:eu-west-1:266995720231:table/whom_ticket/stream/2022-05-01T15:29:45.262'}]}
-
     try:
         # BATCH SIZE IS ONE - SO THE INITIAL LOOP IS SIMPLY TO GET A SINGLE RECORD
         for record in event['Records']:

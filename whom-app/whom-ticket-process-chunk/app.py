@@ -34,12 +34,21 @@ def lambda_handler(event,context):
                 reference_object['ticket_chunk_s3key'] = s3chunkguid
                 output_object = j.dumps(reference_object)
                 messageid = add_sqs_message(content=output_object,system_reference=reference_object['system reference'])
+                update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
             else:
                 for obj in reference_object:
                     obj['identity_object'] = identity_object
                     obj['ticket_chunk_s3key'] = s3chunkguid
                     jobj = j.dumps(obj)
                     messageid = add_sqs_message(content=jobj,system_reference=obj['system reference'])
+                    update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
+        
+        elif ticket_chunk_status == 'COMPLETE':
+            if check_all_chunks_complete(ticket_guid) == 1:
+                update_ticket_status(ticket_guid,'COMPLETE')
+        
+        else:
+            pass
 
         b = bytes(str('success')+'\n'+str(event), 'utf-8')
         f = io.BytesIO(b)
@@ -110,3 +119,42 @@ def get_ticket_metadata(ticketguid):
         return response['Item']   
     else: 
         return response_object
+
+def check_all_chunks_complete(ticketguid):
+
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('whom_ticket_chunk_keys')
+    full_items = full_query(table,IndexName="ticket_guid-index",
+                KeyConditionExpression=Key('ticket_guid').eq(ticketguid))
+
+    chunks = len(full_items)
+    complete = 0
+
+    for item in full_items:
+        if item['ticket_chunk_status']=='COMPLETE':
+            complete = complete + 1
+
+    if complete == chunks:
+        return 1 # ALL CHUNKS ARE COMPLETE
+    else:
+        return 0
+
+def update_ticket_status(ticket_guid,to_status):
+
+    now = datetime.now()
+    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+
+    table = boto3.resource('dynamodb').Table('whom_ticket')
+    response = table.update_item(
+        Key={
+            'ticket_guid':ticket_guid
+        },
+        UpdateExpression="set ticket_updatedon = :u, ticket_status = :s",
+        ExpressionAttributeValues={
+            ':u': dt_string,
+            ':s': to_status
+        },
+        ReturnValues="UPDATED_NEW"
+    )
+
+    return 0

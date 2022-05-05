@@ -88,6 +88,29 @@ Resources:
             Auth:
               ApiKeyRequired: true
 
+  whomFetchResult:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-fetch-results/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /tickets/{ticket-guid}
+            Method: post
+            RequestParameters:
+              - method.request.header.chunkkey
+            Auth:
+              ApiKeyRequired: true
+
   whomTicketSendtoSQS:
     Type: AWS::Serverless::Function
     Properties:
@@ -168,6 +191,25 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSqsReferenceQueue.Arn
+            BatchSize: 1
+
+  whomMarkOffReferences:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-reference-markoff-references/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSQSReturnQueue.Arn
             BatchSize: 1
 
   DynamoWhomTicket:
@@ -253,4 +295,57 @@ Resources:
             ProjectionType: "ALL"
       KeySchema:
         - AttributeName: identity_guid 
+          KeyType: HASH
+
+  DynamoWhomIdentityOutcomes:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_identity_request_outcomes
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: actual_identity_guid
+          AttributeType: S
+        - AttributeName: identity_object_name
+          AttributeType: S
+        - AttributeName: ticket_guid
+          AttributeType: S
+        - AttributeName: ticket_chunk_s3_key
+          AttributeType: S
+        - AttributeName: messageid
+          AttributeType: S
+      GlobalSecondaryIndexes: 
+        - 
+          IndexName: "identity_object_name-index"
+          KeySchema: 
+            - 
+              AttributeName: "identity_object_name"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+        - 
+          IndexName: "actual_identity_guid-index"
+          KeySchema: 
+            - 
+              AttributeName: "actual_identity_guid"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+        - 
+          IndexName: "ticket_guid-index"
+          KeySchema: 
+            - 
+              AttributeName: "ticket_guid"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+        - 
+          IndexName: "ticket_chunk_s3_key-index"
+          KeySchema: 
+            - 
+              AttributeName: "ticket_chunk_s3_key"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+      KeySchema:
+        - AttributeName: messageid 
           KeyType: HASH

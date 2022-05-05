@@ -55,7 +55,7 @@ def lambda_handler(event,context):
                     })
                 }  
             if 'totalchunks' in event['headers']:
-                identity_object_chunks = event['headers']['totalchunks']
+                identity_object_chunks = int(event['headers']['totalchunks'])
             else:
                 return {
                     'statusCode': 400,
