@@ -38,9 +38,9 @@ def lambda_handler(event,context):
                 "Access-Control-Allow-Origin": "*", #Allow from anywhere 
                 "Access-Control-Allow-Methods": "GET, OPTIONS" # Allow only GET, POST request 
             },
-            'body': j.dumps({
+            'body': j.dumps(
                 identity_object
-            })
+            )
         }
 
     except Exception as e:
