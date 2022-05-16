@@ -196,7 +196,8 @@ def add_chunk_key(identityticketuuid,ticket_chunk_s3_key,objects):
                 'ticket_guid':          identityticketuuid,
                 'object_cnt':           objects,
                 'ticket_chunk_status':  'RECEIVED',
-                'last_updated_on': dt_string
+                'last_updated_on': dt_string,
+                'update_reason':        'NEW'
                 }
 
     resp = table.put_item(Item=item)

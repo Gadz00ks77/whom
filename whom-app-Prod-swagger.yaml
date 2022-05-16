@@ -1,0 +1,116 @@
+---
+swagger: "2.0"
+info:
+  version: "1.0"
+  title: "whom-app"
+host: "17yjb8n84l.execute-api.eu-west-1.amazonaws.com"
+basePath: "/Prod"
+schemes:
+- "https"
+paths:
+  /tickets/generate/add-chunk:
+    post:
+      parameters:
+      - name: "ticketguid"
+        in: "header"
+        required: false
+        type: "string"
+      responses: {}
+      security:
+      - api_key: []
+    options:
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      responses:
+        "200":
+          description: "200 response"
+          headers:
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+  /tickets/generate/{method}/{identity-object-name}:
+    post:
+      parameters:
+      - name: "totalchunks"
+        in: "header"
+        required: false
+        type: "string"
+      - name: "identity-object-name"
+        in: "path"
+        required: true
+        type: "string"
+      - name: "method"
+        in: "path"
+        required: true
+        type: "string"
+      responses: {}
+      security:
+      - api_key: []
+    options:
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "identity-object-name"
+        in: "path"
+        required: true
+        type: "string"
+      - name: "method"
+        in: "path"
+        required: true
+        type: "string"
+      responses:
+        "200":
+          description: "200 response"
+          headers:
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+  /tickets/{ticket-guid}:
+    get:
+      parameters:
+      - name: "ticket-guid"
+        in: "path"
+        required: true
+        type: "string"
+      - name: "chunkkey"
+        in: "header"
+        required: false
+        type: "string"
+      responses: {}
+      security:
+      - api_key: []
+    options:
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "ticket-guid"
+        in: "path"
+        required: true
+        type: "string"
+      responses:
+        "200":
+          description: "200 response"
+          headers:
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+securityDefinitions:
+  api_key:
+    type: "apiKey"
+    name: "x-api-key"
+    in: "header"

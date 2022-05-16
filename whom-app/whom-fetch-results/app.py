@@ -43,7 +43,7 @@ def lambda_handler(event,context):
                 'headers': {
                     "Access-Control-Allow-Headers" : "*",
                     "Access-Control-Allow-Origin": "*", #Allow from anywhere 
-                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS" # Allow only GET, POST request 
+                    "Access-Control-Allow-Methods": "GET, OPTIONS" # Allow only GET, POST request 
                 },
                 'body': j.dumps({
                     'result':'failure - ticket not completed',

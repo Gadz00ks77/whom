@@ -81,10 +81,11 @@ def update_chunk_status(s3key):
         Key={
             'ticket_chunk_s3key':s3key
         },
-        UpdateExpression="set last_updated_on = :u,ticket_chunk_status = :s",
+        UpdateExpression="set last_updated_on = :u,ticket_chunk_status = :s, update_reason = :ur",
         ExpressionAttributeValues={
             ':u': dt_string,
-            ':s': 'PROCESSING'
+            ':s': 'PROCESSING',
+            ':ur': 'START'
         },
         ReturnValues="UPDATED_NEW"
     )

@@ -83,22 +83,6 @@ def lambda_handler(event,context):
             })
         }
 
-def full_query(table, **kwargs):
-    response = table.query(**kwargs)
-    items = response['Items']
-    while 'LastEvaluatedKey' in response:
-        response = table.query(ExclusiveStartKey=response['LastEvaluatedKey'], **kwargs)
-        items.extend(response['Items'])
-    return items
-
-def get_delivered_chunk_keys(ticketguid):
-
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('whom_ticket_chunk_keys')
-    full_items = full_query(table,IndexName="ticket_guid-index",
-                    KeyConditionExpression=Key('ticket_guid').eq(ticketguid))
-    return full_items
-
 def update_chunk_status(s3key,new_count,new_status):
 
     now = datetime.now()
@@ -109,11 +93,12 @@ def update_chunk_status(s3key,new_count,new_status):
         Key={
             'ticket_chunk_s3key':s3key
         },
-        UpdateExpression="set last_updated_on = :u,ticket_chunk_status = :s,completed_cnt = :c",
+        UpdateExpression="set last_updated_on = :u,ticket_chunk_status = :s,completed_cnt = :c, update_reason = :ur",
         ExpressionAttributeValues={
             ':u': dt_string,
             ':s': new_status,
-            ':c': new_count
+            ':c': new_count,
+            ':ur': 'MARK OFF'
         },
         ReturnValues="UPDATED_NEW"
     )

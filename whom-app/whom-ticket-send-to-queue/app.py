@@ -22,7 +22,7 @@ def lambda_handler(event,context):
             identity_object_name = ticket_object['identity_object_name']['S']
 
         if ticket_status == 'RECEIVED':
-            delivered_chunks_num = get_delivered_chunks(ticketguid=ticketguid)
+            delivered_chunks_num = get_delivered_chunks(ticketguid=ticketguid) # TO:DO - Eventual consistency issues: need a companion Lambda that accounts for the fact that the delivered chunks may be lagged via an index not yet being updated.
 
             if int(total_chunks) == int(delivered_chunks_num):
                 
@@ -50,17 +50,17 @@ def lambda_handler(event,context):
                         'note':'check s3 log'
                     })
                 }  
-        else:
-            b  = bytes(f'guid {ticketguid} was already sent to the queue', 'utf-8')
-            f = io.BytesIO(b)
-            s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_sqs_already_sent.log')    
-            return {
-                'statusCode': 200,
-                'body': j.dumps({
-                    'result':'success',
-                    'note':'check s3 log'
-                })
-            }  
+        # else:
+        #     b  = bytes(f'guid {ticketguid} was already sent to the queue', 'utf-8')
+        #     f = io.BytesIO(b)
+        #     s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_sqs_already_sent.log')    
+        #     return {
+        #         'statusCode': 200,
+        #         'body': j.dumps({
+        #             'result':'success',
+        #             'note':'check s3 log'
+        #         })
+        #     }  
 
     except Exception as e:
         b = bytes(str(e)+'\n'+str(event), 'utf-8')

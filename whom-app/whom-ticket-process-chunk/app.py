@@ -19,12 +19,13 @@ def lambda_handler(event,context):
             s3chunkguid = record['dynamodb']['Keys']['ticket_chunk_s3key']['S']
             chunk_object = record['dynamodb']['NewImage']
             ticket_chunk_status = chunk_object['ticket_chunk_status']['S']
+            update_reason = chunk_object['update_reason']['S']
             ticket_guid = chunk_object['ticket_guid']['S']
 
         ticket_metadata = get_ticket_metadata(ticketguid=ticket_guid)
         identity_object = ticket_metadata['identity_object_name']['S']
 
-        if ticket_chunk_status == 'PROCESSING':
+        if ticket_chunk_status == 'PROCESSING' and update_reason == 'START':
 
             jreference_object = get_s3_object(s3chunkguid)
             reference_object = j.loads(jreference_object)
@@ -32,17 +33,35 @@ def lambda_handler(event,context):
             if isinstance(reference_object,dict):
                 reference_object['identity_object'] = identity_object
                 reference_object['ticket_chunk_s3key'] = s3chunkguid
-                output_object = j.dumps(reference_object)
-                messageid = add_sqs_message(content=output_object,system_reference=reference_object['system reference'])
+                output_object = {
+                    'request':'MATCH',
+                    'reference_object':reference_object
+                }
+                #j.dumps(reference_object)
+                messageid = add_sqs_message(content=j.dumps(output_object),system_reference=reference_object['system reference'])
                 update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
             else:
                 for obj in reference_object:
                     obj['identity_object'] = identity_object
                     obj['ticket_chunk_s3key'] = s3chunkguid
-                    jobj = j.dumps(obj)
-                    messageid = add_sqs_message(content=jobj,system_reference=obj['system reference'])
-                    update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
-        
+                    output_obj = {
+                        'request':'MATCH',
+                        'reference_object':obj
+                    }
+                    # jobj = j.dumps(obj)
+                    messageid = add_sqs_message(content=j.dumps(output_obj),system_reference=obj['system reference'])
+                update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
+
+            b = bytes(str('success')+'\n'+str(event), 'utf-8')
+            f = io.BytesIO(b)
+            s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_reference_sqs.log')    
+            return {
+                'statusCode': 200,
+                'body': j.dumps({
+                    'result':'success',
+                })
+            }
+
         elif ticket_chunk_status == 'COMPLETE':
             if check_all_chunks_complete(ticket_guid) == 1:
                 update_ticket_status(ticket_guid,'COMPLETE')
@@ -50,14 +69,13 @@ def lambda_handler(event,context):
         else:
             pass
 
-        b = bytes(str('success')+'\n'+str(event), 'utf-8')
-        f = io.BytesIO(b)
-        s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_reference_sqs.log')    
+        # b = bytes(str('success')+'\n'+str(event), 'utf-8')
+        # f = io.BytesIO(b)
+        # s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_reference_sqs.log')    
         return {
             'statusCode': 200,
             'body': j.dumps({
-                'result':'failure',
-                'note':'check s3 error log'
+                'result':'success',
             })
         }
 
@@ -127,7 +145,7 @@ def check_all_chunks_complete(ticketguid):
     full_items = full_query(table,IndexName="ticket_guid-index",
                 KeyConditionExpression=Key('ticket_guid').eq(ticketguid))
 
-    chunks = len(full_items)
+    chunks = len(full_items) # TO DO: Change this to a direct chunknum lookup from ticket
     complete = 0
 
     for item in full_items:

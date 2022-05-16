@@ -2,3 +2,4 @@ venv
 .vscode
 whom-app/.aws-sam
 whom-app/ignore
+whom-app/samconfig.toml
