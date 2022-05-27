@@ -40,7 +40,7 @@ def lambda_handler(event,context):
 
         }
 
-        add_sqs_message(content=message,from_identity_guid=from_identity_guid)
+        add_sqs_message(content=j.dumps(message),from_identity_guid=from_identity_guid)
 
         return {
             'statusCode':200,

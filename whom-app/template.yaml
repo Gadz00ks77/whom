@@ -185,6 +185,48 @@ Resources:
             Auth:
               ApiKeyRequired: true
 
+  whomAssociateRequest:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-identities-associate-request/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /identity/associate
+            Method: post
+            Auth:
+              ApiKeyRequired: true
+
+  whomFetchAssociations:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-fetch-identity-associations/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /identity/associations/fetch/{identity-guid}
+            Method: get
+            Auth:
+              ApiKeyRequired: true
+
   whomTicketSendtoSQS:
     Type: AWS::Serverless::Function
     Properties:
@@ -303,6 +345,25 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSQSReturnQueue.Arn
+            BatchSize: 1
+
+  whomIdentityAssociateProcess:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-identities-associate-process/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSQSAssociationsQueue.Arn
             BatchSize: 1
 
   DynamoWhomTicket:
@@ -443,45 +504,18 @@ Resources:
         - AttributeName: messageid 
           KeyType: HASH
 
+# This table can probably be coalesced into the main identity table. 
+# To avoid GSIs I decided to save the key as the identity itself (either from or two). 
+# A separate table allows the record for associations to use the maximum space on Dynamodb (400Kb??)
+
   DynamoWhomIdentityAssociations:
     Type: AWS::DynamoDB::Table
     Properties: 
       TableName: whom_identity_associations
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: association_guid 
+        - AttributeName: identity_guid 
           AttributeType: S 
-        - AttributeName: association_type
-          AttributeType: S
-        - AttributeName: from_identity_guid
-          AttributeType: S
-        - AttributeName: to_identity_guid
-          AttributeType: S
-      GlobalSecondaryIndexes: 
-        - 
-          IndexName: "association_type-index"
-          KeySchema: 
-            - 
-              AttributeName: "association_type"
-              KeyType: "HASH"
-          Projection:
-            ProjectionType: "ALL"
-        - 
-          IndexName: "from_identity_guid-index"
-          KeySchema: 
-            - 
-              AttributeName: "from_identity_guid"
-              KeyType: "HASH"
-          Projection:
-            ProjectionType: "ALL"
-        - 
-          IndexName: "to_identity_guid-index"
-          KeySchema: 
-            - 
-              AttributeName: "to_identity_guid"
-              KeyType: "HASH"
-          Projection:
-            ProjectionType: "ALL"
       KeySchema:
-        - AttributeName: association_guid
+        - AttributeName: identity_guid
           KeyType: HASH
