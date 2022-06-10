@@ -52,13 +52,13 @@ def lambda_handler(event,context):
                 message['result']['from']=='found an existing association for from the specified guid to the target guid for the specified type and cardinality'
             else:
                 message['result']['from']=='new association recorded'
-                add_association(exists_marker=found_set_from,from_identity_guid=from_identity_guid,to_identity_guid=to_identity_guid,association_type=association_type,cardinality=cardinality)
+                add_association(exists_marker=found_set_from,from_identity_guid=from_identity_guid,to_identity_guid=to_identity_guid,association_type=association_type,cardinality=cardinality,parent=1)
 
             if found_to == 1:
                 message['result']['from']=='found an existing association for from the specified target guid to the "from" guid for the specified type and cardinality'
             else:
                 message['result']['from']=='new association recorded'
-                add_association(exists_marker=found_set_to,from_identity_guid=to_identity_guid,to_identity_guid=from_identity_guid,association_type=association_type,cardinality=cardinality[::-1])
+                add_association(exists_marker=found_set_to,from_identity_guid=to_identity_guid,to_identity_guid=from_identity_guid,association_type=association_type,cardinality=cardinality[::-1],parent=0)
 
         b = bytes(str(event), 'utf-8')
         f = io.BytesIO(b)
@@ -117,15 +117,21 @@ def chk_association_exists(to_identity_guid,association_set,type,cardinality):
 
     return found
 
-def add_association(exists_marker,from_identity_guid,to_identity_guid,association_type,cardinality):
+def add_association(exists_marker,from_identity_guid,to_identity_guid,association_type,cardinality,parent):
 
     table = boto3.resource('dynamodb').Table('whom_identity_associations')
+
+    if parent==1:
+        is_parent='Parent'
+    else:
+        is_parent='Child'
 
     new_association = [
             {
                 'to_identity_guid':to_identity_guid,
                 'association_type':association_type,
-                'cardinality':cardinality
+                'cardinality':cardinality,
+                'parent':is_parent
         }
         ]
 

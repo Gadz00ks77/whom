@@ -46,6 +46,16 @@ def lambda_handler(event,context):
         identity_attributes = body['identity_attributes']
         identity_guid = body['identity_guid']
         identity = fetch_identity(identity_guid=identity_guid)
+        if identity == {}:
+            return {
+                'statusCode':400,
+                'body': j.dumps({'reason':'identity invalid.'}),
+                'headers': {
+                    "Access-Control-Allow-Headers" : "*",
+                    "Access-Control-Allow-Origin": "*", #Allow from anywhere 
+                    "Access-Control-Allow-Methods": "POST, OPTIONS" # Allow only GET, POST request 
+                }
+            }            
         object_type = identity['identity_object_name']['S']
         is_same = CheckPropSchema(attribs_set=identity_attributes,object_type=object_type)
         if is_same == 1:
@@ -73,7 +83,7 @@ def lambda_handler(event,context):
         else:
             return {
                 'statusCode':400,
-                'body': j.dumps({'reason':'schema does not match'}),
+                'body': j.dumps({'reason':'schema does not match.'}),
                 'headers': {
                     "Access-Control-Allow-Headers" : "*",
                     "Access-Control-Allow-Origin": "*", #Allow from anywhere 

@@ -6,6 +6,7 @@ import uuid
 from boto3.dynamodb.conditions import Key
 import json as j
 from botocore.exceptions import ClientError
+from boto3.dynamodb.types import TypeDeserializer
 
 def lambda_handler(event,context):
 
@@ -50,7 +51,10 @@ def lambda_handler(event,context):
                 })
             }
 
-        version = add_object_type(object_name=object_name,object_attributes=object_attributes)
+        current_object = fetch_identity_object_type(object_name=object_name)
+        current_version = current_object['version_uuid']
+        archive_current_version(object_name=object_name,version_uuid=current_version,object_contents=current_object)
+        version = update_object_type(object_name=object_name,object_attributes=object_attributes)
 
         return {
             'statusCode':200,
@@ -77,23 +81,55 @@ def lambda_handler(event,context):
             })
         }
 
-def add_object_type(object_name,object_attributes):
 
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('whom_identity_objects')
-    version_uuid = str(uuid.uuid4())
+def from_dynamodb_to_json(item):
+    d = TypeDeserializer()
+    return {k: d.deserialize(value=v) for k, v in item.items()}
+
+def fetch_identity_object_type(object_name):
+
+    dynamodb_client = boto3.client('dynamodb')
+    response = dynamodb_client.get_item(
+        TableName='whom_identity_objects',
+        Key={
+            'identity_object_name': {'S': object_name}
+        }
+    )    
+    found = {}
+
+    if 'Item' in response:
+        found = from_dynamodb_to_json(response['Item'])
+
+    return found
+
+def update_object_type(object_name,object_attributes):
 
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
 
-    item = {
-                'identity_object_name':     object_name,
-                'version_uuid': version_uuid,
-                'identity_object_attributes': object_attributes,
-                'addedon': dt_string,
-                'updatedon': dt_string
-                }
+    table = boto3.resource('dynamodb').Table('whom_identity_objects')
+    version = str(uuid.uuid4())
+    response = table.update_item(
+        Key={
+            'identity_object_name':object_name
+        },
+        UpdateExpression="set updatedon=:u, identity_object_attributes=:a, version_uuid=:v",
+        ExpressionAttributeValues={
+            ':u': dt_string,
+            ':a': object_attributes,
+            ':v': version
+        },
+        ReturnValues="UPDATED_NEW"
+    )
 
-    resp = table.put_item(Item=item)
+    return version
 
-    return version_uuid
+def archive_current_version(object_name,version_uuid,object_contents):
+    
+    now = datetime.now()
+    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+    s3_errors = os.environ['S3ATTRIBARCHIVE']
+    s3_client = boto3.client('s3')    
+    b = bytes(j.dumps(object_contents), 'utf-8')
+    f = io.BytesIO(b)
+    s3_client.upload_fileobj(f, s3_errors, f'{object_name}/{dt_string}/{version_uuid}.json')    

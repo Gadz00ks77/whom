@@ -18,6 +18,11 @@ Resources:
     Properties:
       BucketName: whom-poc-landing
 
+  AttributeArchiveBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: whom-poc-attribute-archive
+
   LogBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -27,6 +32,11 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: whom-poc-property-landing
+
+  ObjTargetBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: whom-poc-object-target
 
   WhomSqsQueue:
     Type: AWS::SQS::Queue
@@ -51,6 +61,12 @@ Resources:
     Properties:
       FifoQueue: True
       QueueName: WhomIdentitiesItems.fifo
+
+  WhomSqsFrameworkBuilder:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomFrameworkRebuild.fifo
 
   WhomSQSReturnQueue:
     Type: AWS::SQS::Queue
@@ -176,6 +192,26 @@ Resources:
             Auth:
               ApiKeyRequired: true
 
+  whomFetchIdentityObjectFramework:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-fetch-identity-object-framework/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 256
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /identity/object-framework/{identity-guid}
+            Method: get
+            Auth:
+              ApiKeyRequired: true
+
   whomFetchIdentity:
     Type: AWS::Serverless::Function
     Properties:
@@ -260,6 +296,27 @@ Resources:
             Auth:
               ApiKeyRequired: true
 
+  whomIdentObjectsUpdate:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-identities-objects-update/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3ATTRIBARCHIVE: whom-poc-attribute-archive
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /identity/object/update
+            Method: post
+            Auth:
+              ApiKeyRequired: true
+
   whomFetchAssociations:
     Type: AWS::Serverless::Function
     Properties:
@@ -280,6 +337,28 @@ Resources:
             Method: get
             Auth:
               ApiKeyRequired: true
+
+  whomFrameworkSendtoSQS:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-associations-trigger-framework-rebuild/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 256
+      Events:
+        whom:
+          Type: DynamoDB
+          Properties:
+            Stream: 
+              !GetAtt DynamoWhomIdentityAssociations.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+            Enabled: true
 
   whomTicketSendtoSQS:
     Type: AWS::Serverless::Function
@@ -399,6 +478,26 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSQSReturnQueue.Arn
+            BatchSize: 1
+
+  whomFrameworkPersist:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-fetch-identity-object-framework-persist/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          OBJTARGET: whom-poc-object-target
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsFrameworkBuilder.Arn
             BatchSize: 1
 
   whomIdentityAssociateProcess:
@@ -573,6 +672,8 @@ Resources:
       KeySchema:
         - AttributeName: identity_guid
           KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
 
   DynamoWhomIdentityObjects:
     Type: AWS::DynamoDB::Table

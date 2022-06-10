@@ -28,6 +28,15 @@ def lambda_handler(event,context):
 
         # need schema checker here
 
+        if chk_object_type(object_type=identityobjectname)==0:
+            return {
+                'statusCode':400,
+                'body': j.dumps({
+                    'result':'failure',
+                    'note': f'{identityobjectname} is not a valid identity object name'}
+                )
+            }
+
         valid_check = validate_content_schema(content_as_object=content_object)
         
         if valid_check['result'] == 1:
@@ -59,11 +68,15 @@ def lambda_handler(event,context):
             else:
                 return {
                     'statusCode': 400,
+                    'headers': {'content-type': 'application/json'},
                     'body': j.dumps({
                         'result':'failure',
                         'note':'BATCH method specified but total chunks not specified in request Header'
                     })
                 }                
+
+        put_to_s3(identityticketuuid,content,content_s3_key)
+        add_chunk_key(identityticketuuid=identityticketuuid,ticket_chunk_s3_key=content_s3_key,objects=cnt)
 
         org_item = {
                 'ticket_guid':                      identityticketuuid
@@ -76,15 +89,13 @@ def lambda_handler(event,context):
                 }
 
         resp = table.put_item(Item=org_item)
-        put_to_s3(identityticketuuid,content,content_s3_key)
-        add_chunk_key(identityticketuuid=identityticketuuid,ticket_chunk_s3_key=content_s3_key,objects=cnt)
 
         return {
             'statusCode':200,
             'headers': {
                 "Access-Control-Allow-Headers" : "*",
                 "Access-Control-Allow-Origin": "*", #Allow from anywhere 
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS" # Allow only GET, POST request 
+                "Access-Control-Allow-Methods": "POST, OPTIONS" # Allow only POST request 
             },
             'body': j.dumps({
                 'result':identityticketuuid
@@ -102,6 +113,23 @@ def lambda_handler(event,context):
                 'note':'check s3 error log'
             })
         }
+
+def chk_object_type(object_type):
+
+    dynamodb_client = boto3.client('dynamodb')
+    response = dynamodb_client.get_item(
+        TableName='whom_identity_objects',
+        Key={
+            'identity_object_name': {'S': object_type}
+        }
+    )    
+    found = 0
+
+    if 'Item' in response:
+        found = 1
+
+    return found
+
 
 def put_to_s3(ticket_uuid,content,targets3key):
 
@@ -163,3 +191,5 @@ def add_chunk_key(identityticketuuid,ticket_chunk_s3_key,objects):
                 }
 
     resp = table.put_item(Item=item)
+
+
