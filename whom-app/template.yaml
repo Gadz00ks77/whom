@@ -17,26 +17,67 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: whom-poc-landing
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      # AccessControl: Private
+
+  PopuTargetBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: whom-poc-populated-target
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      # AccessControl: Private
 
   AttributeArchiveBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: whom-poc-attribute-archive
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      # AccessControl: Private
 
   LogBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: whom-poc-logs
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      # AccessControl: Private
 
   PropLandingBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: whom-poc-property-landing
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      # AccessControl: Private
 
   ObjTargetBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: whom-poc-object-target
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      # AccessControl: Private
 
   WhomSqsQueue:
     Type: AWS::SQS::Queue
@@ -79,6 +120,12 @@ Resources:
     Properties:
       FifoQueue: True 
       QueueName: WhomAssociations.fifo
+
+  WhomPopulateQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True 
+      QueueName: WhomPopulate.fifo
 
   whomGenerateTicket:
     Type: AWS::Serverless::Function
@@ -517,6 +564,45 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSQSAssociationsQueue.Arn
+            BatchSize: 1
+
+  whomFrameworkPopulateRebuildTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-identities-extprop-buildtrigger/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: S3
+          Properties:
+            Bucket: !Ref ObjTargetBucket
+            Events: s3:ObjectCreated:*
+
+  whomExtPropAppend:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-identities-extprop-append/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+          TARGET: whom-poc-object-target
+          POPUTARGE: whom-poc-populated-target
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomPopulateQueue.Arn
             BatchSize: 1
 
   DynamoWhomTicket:

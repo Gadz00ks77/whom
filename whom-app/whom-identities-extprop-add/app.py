@@ -61,12 +61,14 @@ def lambda_handler(event,context):
         if is_same == 1:
             req_guid = str(uuid.uuid4())
             s3key = f"{object_type}/{identity_guid}/{dt_string}/{req_guid}.json"
+            latests3key = f"{object_type}/{identity_guid}/latest.json"
             message_content = {
                 'guid':req_guid,
                 's3key':s3key,
                 'type':request_type
             }
             put_to_s3(content=event['body'],targets3key=s3key)
+            put_to_s3(content=event['body'],targets3key=latests3key)
             messageid = add_sqs_message(content=j.dumps(message_content),from_identity_guid=identity_guid)
             add_request(request_guid=req_guid,identity_object_type=object_type,identity_guid=identity_guid,message_id=messageid,s3_key=s3key)
             return {

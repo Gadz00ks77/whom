@@ -12,6 +12,7 @@ def lambda_handler(event,context):
     s3_errors = os.environ['S3ERRORS']
     s3proplanding = os.environ['S3LANDING']
     s3objlanding = os.environ['TARGET']
+    s3populatedlanding = os.environ['POPUTARGE']
 
     s3_client = boto3.client('s3')
     
@@ -28,34 +29,59 @@ def lambda_handler(event,context):
             
             body_object = j.loads(record['body'])
             req_guid = body_object['req_guid']
-            s3key = body_object['s3key']
-            request_type = body_object['type'] #not being used at the mo. Later.
+            request_type = body_object['type']
+            if request_type == 'rebuild':
+                # create the property s3key and fetch the other items, then build
+                property_identity = body_object['property_ident']
+                identity_guid = body_object['identity_guid']
+                identity_object_type = fetch_identity_object_type(identity_guid=identity_guid)
+                property_object_type = fetch_identity_object_type(identity_guid=property_identity)
+                propertys3key = f"{property_object_type}/{property_identity}/latest.json"
+                
+            elif request_type == 'append':
+                # go ahead and build it (not too sure this is all "right")
+                propertys3key = body_object['propertys3key']
+                identity_object_type = propertys3key[:propertys3key.find('/')]
+                remaining = propertys3key[propertys3key.find('/')+1:]
+                identity_guid = remaining[:remaining.find('/')]
 
-            identity_object_type = s3key[:s3key.find('/')]
-            remaining = s3key[s3key.find('/')+1:]
-            identity_guid = remaining[:remaining.find('/')]
             actual_obj = j.loads(collect_s3_object(s3key=f'{identity_object_type}/{identity_guid}/{identity_object_type}.json',bucket=s3objlanding))
 
             if actual_obj is None:
-                pass
+                e = f'No valid identity object file at {identity_object_type}/{identity_guid}/{identity_object_type}.json'
+                b = bytes(str(e)+'\n'+str(event), 'utf-8')
+                f = io.BytesIO(b)
+                s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_properties_append_error.log')    
+                return {
+                    'statusCode': 500,
+                    'body': j.dumps({
+                        'result':'failure',
+                        'note':'check s3 error log'
+                    })
+                }
                 
-            property_set = j.loads(collect_s3_object(s3key=s3key,bucket=s3proplanding))
+            property_set = j.loads(collect_s3_object(s3key=propertys3key,bucket=s3proplanding))
+
+            if property_set is None:
+                return {
+                    'statusCode': 500,
+                    'body': j.dumps({
+                        'result':'failure',
+                        'note':f'no valid property set for stated skey: {propertys3key}'
+                    })
+                }                
+
             searching_guid = property_set['identity_guid']
             attributes = property_set['identity_attributes']
 
             output = append_items(identityframework=actual_obj,tofind=searching_guid,addme=attributes)
 
-            b = bytes(str(output), 'utf-8')
+            b = bytes(j.dumps(output), 'utf-8')
             f = io.BytesIO(b)
-            s3_client.upload_fileobj(f, s3objlanding, f'{identity_object_type}/{identity_guid}/{identity_object_type}.json')   
+            s3_client.upload_fileobj(f, s3populatedlanding, f'{identity_object_type}/{identity_guid}/{identity_object_type}.json')   
 
         return {
             'statusCode':200,
-            'headers': {
-                "Access-Control-Allow-Headers" : "*",
-                "Access-Control-Allow-Origin": "*", #Allow from anywhere 
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS" # Allow only GET, POST request 
-            },
             'body': j.dumps({
                 'result':'success'
             })
@@ -64,7 +90,7 @@ def lambda_handler(event,context):
     except Exception as e:
         b = bytes(str(e)+'\n'+str(event), 'utf-8')
         f = io.BytesIO(b)
-        s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_associate_identity_process_error.log')    
+        s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_property_append_queue_response_error.log')    
         return {
             'statusCode': 500,
             'body': j.dumps({
@@ -104,3 +130,20 @@ def append_items(identityframework,tofind,addme):
             identityframework[a]=addme[a]
 
     return identityframework
+
+def fetch_identity_object_type(identity_guid):
+
+    dynamodb_client = boto3.client('dynamodb')
+    response = dynamodb_client.get_item(
+        TableName='whom_identities',
+        Key={
+            'identity_guid': {'S': identity_guid}
+        }
+    )    
+    found = {}
+
+    if 'Item' in response:
+        object_type = response['Item']['identity_object_name']['S']
+
+    return object_type
+

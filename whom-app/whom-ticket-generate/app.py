@@ -94,6 +94,7 @@ def lambda_handler(event,context):
             'statusCode':200,
             'headers': {
                 "Access-Control-Allow-Headers" : "*",
+                "content-type": "application/json",
                 "Access-Control-Allow-Origin": "*", #Allow from anywhere 
                 "Access-Control-Allow-Methods": "POST, OPTIONS" # Allow only POST request 
             },
