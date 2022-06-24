@@ -394,7 +394,8 @@ Resources:
       Environment:
         Variables:
           S3ERRORS: whom-poc-logs
-          S3LANDING: whom-poc-landing
+          S3PROPLANDING: whom-poc-propert-landing
+          POPUTARGE: whom-poc-populated-target
       Role: arn:aws:iam::266995720231:role/whom-role
       MemorySize: 256
       Events:
@@ -446,6 +447,24 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSqsQueue.Arn
+            BatchSize: 1
+
+  whomIdentityExtPropAddTrigger:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-identities-extprop-add-trigger/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsAddPropQueue.Arn
             BatchSize: 1
 
   whomTicketProcessChunk:
@@ -593,7 +612,7 @@ Resources:
       Environment:
         Variables:
           S3ERRORS: whom-poc-logs
-          S3LANDING: whom-poc-landing
+          S3PROPLANDING: whom-poc-property-landing
           TARGET: whom-poc-object-target
           POPUTARGE: whom-poc-populated-target
       Role: arn:aws:iam::266995720231:role/whom-role
@@ -771,6 +790,29 @@ Resources:
           AttributeType: S
       KeySchema:
         - AttributeName: identity_object_name
+          KeyType: HASH
+
+  DynamoWhomIdentityFrameworkHashes:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_identity_framework_hash
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: identity_guid
+          AttributeType: S
+        - AttributeName: identity_hash_status
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        -
+          IndexName: "identity_hash_status-index"
+          KeySchema:
+            -
+              AttributeName: "identity_hash_status"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: 'ALL'
+      KeySchema:
+        - AttributeName: identity_guid
           KeyType: HASH
 
   DynamoWhomIdentityPropertyRequests:

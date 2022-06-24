@@ -1,3 +1,4 @@
+from urllib import response
 import boto3
 import os
 from datetime import datetime
@@ -7,45 +8,47 @@ from boto3.dynamodb.conditions import Key
 import json as j
 from botocore.exceptions import ClientError
 from boto3.dynamodb.types import TypeDeserializer
-import copy
-import ast
-
 
 def lambda_handler(event,context):
 
     s3_errors = os.environ['S3ERRORS']
+
     s3_client = boto3.client('s3')
+    
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
 
+    message = {}
+    message['result']={}
+    message['result']['from']={}
+
     try:
-        # BATCH SIZE IS ONE - SO THE INITIAL LOOP IS SIMPLY TO GET A SINGLE RECORD
+
         for record in event['Records']:
-            identityguid = record['dynamodb']['Keys']['identity_guid']['S']
-            identity_object_type = fetch_identity_object_type(identity_guid=identityguid)
-            association_object = record['dynamodb']['NewImage']
-            set = association_object['association_set']['L']
+            
+            body_object = j.loads(record['body'])
+            req_guid = body_object['guid']
+            request_type = body_object['type']
+            s3key = body_object['s3key']
+            key_split = s3key.split('/')
+            updated_identity_guid = key_split[1]
 
-            remove_populated_target(identity_guid=identityguid,identity_object_type=identity_object_type)
+            for k in loop_to_root_parent(starting_guid=updated_identity_guid):
+                # trigger framework rebuild for stated root object via queue
+                content = j.dumps({'identity_guid':k})
+                messageid = add_sqs_message(content=content,at_time=dt_string,identityguid=k)
 
-            for s in set:
-                if s['M']['parent']['S']=='Parent':
-                    for k in loop_to_root_parent(starting_guid=s['M']['to_identity_guid']['S']):
-                        # trigger framework rebuild for stated root object via queue
-                        content = j.dumps({'identity_guid':k})
-                        messageid = add_sqs_message(content=content,at_time=dt_string,identityguid=k)
-
-            return {
-                'statusCode': 200,
-                'body': j.dumps({
-                    'result':'success'
-                })
-            }  
+        return {
+            'statusCode':200,
+            'body': j.dumps({
+                'result':'success'
+            })
+        }
 
     except Exception as e:
         b = bytes(str(e)+'\n'+str(event), 'utf-8')
         f = io.BytesIO(b)
-        s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_trigger_framework_rebuild_error.log')    
+        s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_extprop_add_trigger_errors.log')    
         return {
             'statusCode': 500,
             'body': j.dumps({
@@ -136,7 +139,6 @@ def add_sqs_message(content,at_time,identityguid):
     
     return messageid
 
-
 def fetch_identity_object_type(identity_guid):
 
     dynamodb_client = boto3.client('dynamodb')
@@ -166,3 +168,10 @@ def remove_populated_target(identity_guid,identity_object_type):
         s3.Object(bucket,s3key).delete() 
 
     return 1
+
+
+event = {'Records':[
+    {'body':'{"guid": "56f53891-9ae0-4132-96e5-5b28dfc547b3", "s3key": "PARTY/83e8506f-a940-4e55-955f-9d9bc277cbfd/20220624102613185/56f53891-9ae0-4132-96e5-5b28dfc547b3.json", "type": "create"}'}
+]}
+
+lambda_handler(event=event,context=None)
