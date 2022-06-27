@@ -24,6 +24,16 @@ Resources:
         RestrictPublicBuckets: TRUE
       # AccessControl: Private
 
+  AggStructBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: whom-poc-aggregate-structure
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+
   PopuTargetBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -382,6 +392,49 @@ Resources:
           Properties: 
             Path: /identity/associations/fetch/{identity-guid}
             Method: get
+            Auth:
+              ApiKeyRequired: true
+
+  whomIdentityObjectAggregateCreate:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-identity-object-aggregate-create/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /identity/object/aggregates/{identity-object-aggregate-name}
+            Method: get
+            Auth:
+              ApiKeyRequired: true
+
+  whomIdentityObjectAggregateAssociationsCreate:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-identity-object-aggregate-structure-create/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+          S3AGGREGATESTRUCTURE: whom-poc-aggregate-structure
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: Api
+          Properties: 
+            Path: /identity/object/aggregates/{identity-object-aggregate-name}/structure/create
+            Method: post
             Auth:
               ApiKeyRequired: true
 
@@ -846,4 +899,39 @@ Resources:
             ProjectionType: "ALL"
       KeySchema:
         - AttributeName: request_guid
+          KeyType: HASH
+
+  DynamoWhomIdentityObjectAggregates:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_identity_object_aggregates
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: identity_object_aggregate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: identity_object_aggregate
+          KeyType: HASH
+
+  DynamoWhomIdentityObjectAggregateAssociations:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_identity_object_aggregates_associations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: association_chain
+          AttributeType: S
+        - AttributeName: identity_object_aggregate
+          AttributeType: S
+      GlobalSecondaryIndexes: 
+        - 
+          IndexName: "identity_object_aggregate-index"
+          KeySchema: 
+            - 
+              AttributeName: "identity_object_aggregate"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "ALL"
+      KeySchema:
+        - AttributeName: association_chain
           KeyType: HASH

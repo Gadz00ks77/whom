@@ -19,6 +19,15 @@ def lambda_handler(event,context):
         associate_object = j.loads(event['body'])
         from_identity_guid = associate_object['from identity guid']
         to_identity_guid = associate_object['to identity guid']
+        if 'aggregate' in associate_object:
+            aggregate = associate_object['aggregate']
+        else:
+            aggregate = None
+        
+        if 'aggregate version' in associate_object:
+            version = associate_object['aggregate version'] 
+        else:
+            version = None
         
         from_identity_object = fetch_identity(identity_guid=from_identity_guid)
         to_identity_object = fetch_identity(identity_guid=to_identity_guid)
@@ -32,6 +41,20 @@ def lambda_handler(event,context):
                     "Access-Control-Allow-Methods": "POST, OPTIONS" 
                 }
             }    
+
+        if aggregate is not None:
+            if chk_association(agg_ame=aggregate,from_obj=from_identity_object,to_obj=to_identity_object) == 0:
+                return {
+                    'statusCode':400,
+                    'headers': {
+                        "Access-Control-Allow-Headers" : "*",
+                        "Access-Control-Allow-Origin": "*", #Allow from anywhere 
+                        "Access-Control-Allow-Methods": "POST, OPTIONS" # Allow only GET, POST request 
+                    },
+                    'body': j.dumps({
+                        'outcome':'inappropriate association'
+                    })
+                }
 
         association_ticket_guid = str(uuid.uuid4())
         message = {
@@ -94,3 +117,33 @@ def add_sqs_message(content,from_identity_guid):
     messageid = response.get('MessageId')
     
     return messageid
+
+def full_query(table, **kwargs):
+    response = table.query(**kwargs)
+    items = response['Items']
+    while 'LastEvaluatedKey' in response:
+        response = table.query(ExclusiveStartKey=response['LastEvaluatedKey'], **kwargs)
+        items.extend(response['Items'])
+    return items
+
+def fetch_relations(agg_name):
+
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('whom_identity_object_aggregates_associations')
+    full_items = full_query(table,IndexName="identity_object_aggregate-index",
+                KeyConditionExpression=Key('identity_object_aggregate').eq(agg_name))
+
+    return full_items
+
+
+def chk_association(agg_ame,from_obj,to_obj):
+
+    all_relations_for_aggregate = fetch_relations(agg_name=agg_ame)
+
+    found = 0
+
+    for r in all_relations_for_aggregate:
+        if from_obj == r['parent'] and to_obj == r['child']:
+            found = 1
+
+    return found

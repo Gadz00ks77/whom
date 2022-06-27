@@ -106,13 +106,14 @@ def recurse_identities(identity_guid,parent_guid):
     clean_assoc = from_dynamodb_to_json(new_assoc)
 
     for assoc in clean_assoc['association_set']:
-        new_guid = assoc['to_identity_guid']
-        if parent_guid != new_guid:
-            assoc['parent_guid']= identity_guid
-            yield assoc
-            for r in recurse_identities(new_guid,parent_guid=identity_guid):
-                yield(r)
-
+        if assoc['parent']=='Parent':
+            new_guid = assoc['to_identity_guid']
+            if parent_guid != new_guid:
+                assoc['parent_guid']= identity_guid
+                yield assoc
+                for r in recurse_identities(new_guid,parent_guid=identity_guid):
+                    yield(r)
+                    
 def DoPath(current_identity_set,parent_map,add_value,target_type):
 
     for map in parent_map:

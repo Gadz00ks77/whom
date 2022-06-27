@@ -281,6 +281,3 @@ def FetchIt(root_identity_guid):
     
     return identityFramework
 
-# event = {'Records': [{'messageId': '0b246495-3682-4d99-af49-155319f3f97f', 'receiptHandle': 'AQEBdoBZWGaUdBSOYWR1yT2um1njEoIKoHt0krwR4shE0YfxtU6ag8AkA/gobHopCiR9nShPH0bWC/di4qwGU5oy3dYduBdFeVlh2b0da8bBrTnTTechE3FjQSooP5QODmS1u5Uok07paEHKBobz9/TS5iBU3rq/gcPyvuTP+gVGYVfpMvvuGpk9D+MilD0rl3MZ3aEkW5AorO5mc8Sq1bABBThgkXpyFDKKa7g+CrZ0dbAUShEZlKYV3SZdKWD4WSyez9K/5fAQ+tVP6mC4lGK+pUOI5hmPYQLs8UyIBeXQ1xA=', 'body': '{"identity_guid": "e79dbcb4-57fa-45ed-a554-06b4a879be2f"}', 'attributes': {'ApproximateReceiveCount': '1', 'SentTimestamp': '1654897820482', 'SequenceNumber': '18870397915752943872', 'MessageGroupId': '87c0bd9b-8caf-481b-b651-e02e79bae801', 'SenderId': 'AROAT4KRPMAT5X6Z5QVM7:whom-app-whomFrameworkSendtoSQS-tOfCeRIxpYQH', 'MessageDeduplicationId': '87c0bd9b-8caf-481b-b651-e02e79bae80120220610215019939', 'ApproximateFirstReceiveTimestamp': '1654897820482'}, 'messageAttributes': {}, 'md5OfBody': 'f4f74b94259cffb4b9adfbd7310402c7', 'eventSource': 'aws:sqs', 'eventSourceARN': 'arn:aws:sqs:eu-west-1:266995720231:WhomFrameworkRebuild.fifo', 'awsRegion': 'eu-west-1'}]}
-
-# lambda_handler(event=event,context=None)
