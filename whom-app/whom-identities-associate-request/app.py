@@ -32,6 +32,9 @@ def lambda_handler(event,context):
         from_identity_object = fetch_identity(identity_guid=from_identity_guid)
         to_identity_object = fetch_identity(identity_guid=to_identity_guid)
 
+        from_object = from_identity_object['identity_object_name']['S']
+        to_object = to_identity_object['identity_object_name']['S']
+
         if from_identity_object == {} or to_identity_object == {}:
             return {
                 'statusCode':400,
@@ -43,7 +46,8 @@ def lambda_handler(event,context):
             }    
 
         if aggregate is not None:
-            if chk_association(agg_ame=aggregate,from_obj=from_identity_object,to_obj=to_identity_object) == 0:
+            if chk_association(agg_ame=aggregate,from_obj=from_object,to_obj=to_object) == 0:
+
                 return {
                     'statusCode':400,
                     'headers': {
@@ -52,7 +56,10 @@ def lambda_handler(event,context):
                         "Access-Control-Allow-Methods": "POST, OPTIONS" # Allow only GET, POST request 
                     },
                     'body': j.dumps({
-                        'outcome':'inappropriate association'
+                        'outcome':'inappropriate association',
+                        'agg': aggregate,
+                        'from_obj': from_identity_object,
+                        'to_obj': to_identity_object
                     })
                 }
 

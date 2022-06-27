@@ -179,46 +179,90 @@ def BuildPathItems(currentPathDict,newItem,newItemChannel,lastnewChannel):
 
     return currentPathDict
 
-def newRecurseAndPath(frameworkDict,FindParent,PreviousPathItems,currentchannel,lastchannel):
+# def newRecurseAndPath(frameworkDict,FindParent,PreviousPathItems,currentchannel,lastchannel):
 
-    parent_guid = FindParent
+#     parent_guid = FindParent
 
-    # print(type(frameworkDict))
-    if isinstance(frameworkDict,dict):
-        for key in frameworkDict:
-            if key == 'identity_guid':
-                if frameworkDict['identity_guid']==PreviousPathItems[currentchannel][len(PreviousPathItems[currentchannel])-1]:
-                    # print(currentchannel)
-                    # print('identity_guid:'+frameworkDict['identity_guid'])
-                    # print('pathcheck:'+PreviousPathItems[currentchannel][len(PreviousPathItems[currentchannel])-1])
-                    # print('already')
-                    yield PreviousPathItems
-                else:
-                    # print('no')
-                    yield PreviousPathItems
-            elif isinstance(frameworkDict[key],list):
-                new_channel = currentchannel
-                last_new_channel = currentchannel
-                for item in frameworkDict[key]:
-                        new_channel = new_channel + 1
-                        PreviousPathItems=BuildPathItems(currentPathDict=PreviousPathItems,newItem=item['identity_guid'],newItemChannel=new_channel,lastnewChannel=last_new_channel)
-                        getch = newRecurseAndPath(frameworkDict=item,FindParent=parent_guid,PreviousPathItems=PreviousPathItems,currentchannel=new_channel,lastchannel=last_new_channel)
-                        for gc in getch:
-                            yield gc
-            elif frameworkDict[key]['identity_guid']==parent_guid:
-                # print('yes - parent key is the same!')
-                # if isinstance(frameworkDict[key],list)
-                PreviousPathItems=BuildPathItems(currentPathDict=PreviousPathItems,newItem=frameworkDict[key]['identity_guid'],newItemChannel=currentchannel,lastnewChannel=lastchannel)
+#     if isinstance(frameworkDict,dict):
+#         for key in frameworkDict:
+#             if key == 'identity_guid':
+#                 if frameworkDict['identity_guid']==PreviousPathItems[currentchannel][len(PreviousPathItems[currentchannel])-1]:
+#                     yield PreviousPathItems
+#                 else:
+#                     yield PreviousPathItems
+#             elif isinstance(frameworkDict[key],list):
+#                 new_channel = currentchannel
+#                 last_new_channel = currentchannel
+#                 for item in frameworkDict[key]:
+#                         new_channel = new_channel + 1
+#                         PreviousPathItems=BuildPathItems(currentPathDict=PreviousPathItems,newItem=item['identity_guid'],newItemChannel=new_channel,lastnewChannel=last_new_channel)
+#                         getch = newRecurseAndPath(frameworkDict=item,FindParent=parent_guid,PreviousPathItems=PreviousPathItems,currentchannel=new_channel,lastchannel=last_new_channel)
+#                         for gc in getch:
+#                             yield gc
+#             elif frameworkDict[key]['identity_guid']==parent_guid:
+#                 PreviousPathItems=BuildPathItems(currentPathDict=PreviousPathItems,newItem=frameworkDict[key]['identity_guid'],newItemChannel=currentchannel,lastnewChannel=lastchannel)
+#                 yield PreviousPathItems
+#             else:
+#                 PreviousPathItems=BuildPathItems(PreviousPathItems,frameworkDict[key]['identity_guid'],currentchannel,lastchannel)
+#                 jeff = copy.deepcopy(frameworkDict[key])
+#                 get = newRecurseAndPath(frameworkDict=jeff,FindParent=parent_guid,PreviousPathItems=PreviousPathItems,currentchannel=currentchannel,lastchannel=lastchannel)
+#                 for g in get:
+#                     yield g
+
+
+def RecurseAssociationsandGeneratePath(frameworkDict,ToFindParent,PreviousPathItems,currentchannel,lastchannel):
+
+    relationcnt = 0
+    myOrigPathItems = str(copy.deepcopy(PreviousPathItems))
+
+    for key in frameworkDict:
+
+        if key == 'identity_guid':
+            if frameworkDict[key]==ToFindParent:
+                print('found it')
                 yield PreviousPathItems
-            # elif frameworkDict[kw]
-            
+        elif isinstance(frameworkDict[key],dict):
+            relationcnt = relationcnt + 1
+            if relationcnt > 1:
+                # increment channel here?
+                print('same parent, new dict')
+                new_channel = givelastchannel(PreviousPathItems) + 1
+                last_new_channel = givelastchannel(PreviousPathItems)
+                sub_fwrk = copy.deepcopy(frameworkDict[key])
+                dmyOrigPathItems = ast.literal_eval(myOrigPathItems)
+                PreviousPathItems=BuildPathItems(currentPathDict=dmyOrigPathItems,newItem=frameworkDict[key]['identity_guid'],newItemChannel=new_channel,lastnewChannel=last_new_channel)
+                get_rels = RecurseAssociationsandGeneratePath(frameworkDict=sub_fwrk,ToFindParent=ToFindParent,PreviousPathItems=PreviousPathItems,currentchannel=new_channel,lastchannel=last_new_channel)
+                for r in get_rels:
+                    yield r 
             else:
-                # print('no - parent key is different')
-                PreviousPathItems=BuildPathItems(PreviousPathItems,frameworkDict[key]['identity_guid'],currentchannel,lastchannel)
-                jeff = copy.deepcopy(frameworkDict[key])
-                get = newRecurseAndPath(frameworkDict=jeff,FindParent=parent_guid,PreviousPathItems=PreviousPathItems,currentchannel=currentchannel,lastchannel=lastchannel)
-                for g in get:
-                    yield g
+                sub_fwrk = copy.deepcopy(frameworkDict[key])
+                PreviousPathItems=BuildPathItems(currentPathDict=PreviousPathItems,newItem=frameworkDict[key]['identity_guid'],newItemChannel=currentchannel,lastnewChannel=lastchannel)
+                get_rels = RecurseAssociationsandGeneratePath(frameworkDict=sub_fwrk,ToFindParent=ToFindParent,PreviousPathItems=PreviousPathItems,currentchannel=currentchannel,lastchannel=lastchannel)
+                for r in get_rels:
+                    yield r 
+        elif isinstance(frameworkDict[key],list):
+                new_channel = givelastchannel(PreviousPathItems)
+                last_new_channel = givelastchannel(PreviousPathItems)
+                for item in frameworkDict[key]:
+                    new_channel = new_channel + 1
+                    PreviousPathItems=BuildPathItems(currentPathDict=PreviousPathItems,newItem=item['identity_guid'],newItemChannel=new_channel,lastnewChannel=last_new_channel)
+                    get_rels = RecurseAssociationsandGeneratePath(frameworkDict=item,ToFindParent=ToFindParent,PreviousPathItems=PreviousPathItems,currentchannel=new_channel,lastchannel=last_new_channel)
+                    for r in get_rels:
+                        yield r
+
+        
+def givelastchannel(PathItemSet):
+
+# hate this.
+
+    num = 0
+
+    for k in PathItemSet:
+        if k > num:
+            num = k 
+
+    return num
+
 
 def fetch_identity_object_type(identity_guid):
 
@@ -255,6 +299,9 @@ def FetchIt(root_identity_guid):
     starting_type = fetch_identity_object_type(root_identity['starting_ident_guid'])
     identityFramework[starting_type]={'identity_guid':root_identity['starting_ident_guid']}
 
+    print(identities_list)
+    print(identityFramework)
+
     for identity in identities_list:
         parent_guid = identity['parent_guid']
         to_add_guid = identity['to_identity_guid']
@@ -262,7 +309,8 @@ def FetchIt(root_identity_guid):
         my_type = fetch_identity_object_type(to_add_guid)
         # my_parents_type = fetch_identity_object_type(parent_guid)
         # print('to do: '+to_add_guid)
-        paths = newRecurseAndPath(frameworkDict=identityFramework,FindParent=parent_guid,PreviousPathItems={},currentchannel=1,lastchannel=1)
+        # paths = newRecurseAndPath(frameworkDict=identityFramework,FindParent=parent_guid,PreviousPathItems={},currentchannel=1,lastchannel=1)
+        paths = RecurseAssociationsandGeneratePath(frameworkDict=identityFramework,ToFindParent=parent_guid,PreviousPathItems={},currentchannel=1,lastchannel=1)
 
         for path in paths:
             # print(path)
@@ -270,8 +318,10 @@ def FetchIt(root_identity_guid):
             for p in path:
                 if parent_guid in path[p]:
                     valid_only[p]=path[p]
+                # else:
+                #     print(parent_guid)
+                #     print(path[p])
             if valid_only != {}:
                 DoPath(current_identity_set=identityFramework,parent_map=valid_only,add_value=to_add_guid,target_type=my_type)
     
     return identityFramework
-
