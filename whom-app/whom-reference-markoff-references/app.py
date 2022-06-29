@@ -47,7 +47,7 @@ def lambda_handler(event,context):
             else:
                 new_completed_cnt = 1
 
-            if new_completed_cnt == chunk_metadata['object_cnt']:
+            if new_completed_cnt >= chunk_metadata['object_cnt']:
                 new_status = 'COMPLETE'
             else:
                 new_status = chunk_metadata['ticket_chunk_status']

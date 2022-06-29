@@ -12,7 +12,8 @@ We've all been there; System X calls a policy "Y" but System Z calls the same po
  ## TODO
 
  - Review GSI calls for eventual consistency potential issues
- -- whom-fetch-results; no change required as the chunks must be marked complete.
- -- whom-ticket-process-chunk; change as per TO DO in code
- -- whom-ticket-send-to-queue; change as per TO DO in code
- -- whom-ticket-start-chunk-process; no change required if "send to queue" fix above is accounted for. 
+ - whom-fetch-results; no change required as the chunks must be marked complete.
+ - whom-ticket-process-chunk; change as per TO DO in code
+ - whom-ticket-send-to-queue; change as per TO DO in code
+ - whom-ticket-start-chunk-process; no change required if "send to queue" fix above is accounted for. 
+ - Limit Batch to 500 per chunk

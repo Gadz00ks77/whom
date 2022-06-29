@@ -4,7 +4,7 @@ Description: >
   whom
 Globals:
   Function:
-    Timeout: 30
+    Timeout: 60
   Api:
     Cors:
       AllowMethods: "'*'"
@@ -94,48 +94,62 @@ Resources:
     Properties:
       FifoQueue: True
       QueueName: WhomTickets.fifo
+      VisibilityTimeout: 60
 
   WhomSqsReferenceQueue:
     Type: AWS::SQS::Queue
     Properties:
       FifoQueue: True
       QueueName: WhomReferenceItems.fifo
+      VisibilityTimeout: 300
 
   WhomSqsAddPropQueue:
     Type: AWS::SQS::Queue
     Properties:
       FifoQueue: True
       QueueName: WhomAddProp.fifo
+      VisibilityTimeout: 60
 
   WhomSqsIdentitiesQueue:
     Type: AWS::SQS::Queue
     Properties:
       FifoQueue: True
       QueueName: WhomIdentitiesItems.fifo
+      VisibilityTimeout: 60
+
+  WhomSQSDeadLetter:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: WhomDLQueue
+      VisibilityTimeout: 60
 
   WhomSqsFrameworkBuilder:
     Type: AWS::SQS::Queue
     Properties:
       FifoQueue: True
       QueueName: WhomFrameworkRebuild.fifo
+      VisibilityTimeout: 60
 
   WhomSQSReturnQueue:
     Type: AWS::SQS::Queue
     Properties:
       FifoQueue: True 
       QueueName: WhomReturns.fifo
+      VisibilityTimeout: 60
 
   WhomSQSAssociationsQueue:
     Type: AWS::SQS::Queue
     Properties:
       FifoQueue: True 
       QueueName: WhomAssociations.fifo
+      VisibilityTimeout: 60
 
   WhomPopulateQueue:
     Type: AWS::SQS::Queue
     Properties:
       FifoQueue: True 
       QueueName: WhomPopulate.fifo
+      VisibilityTimeout: 60
 
   whomGenerateTicket:
     Type: AWS::Serverless::Function
@@ -526,6 +540,7 @@ Resources:
       CodeUri: whom-ticket-process-chunk/
       Handler: app.lambda_handler
       Runtime: python3.8
+      Timeout: 300
       Environment:
         Variables:
           S3ERRORS: whom-poc-logs
@@ -548,6 +563,7 @@ Resources:
       CodeUri: whom-reference-generate/
       Handler: app.lambda_handler
       Runtime: python3.8
+      Timeout: 300
       Environment:
         Variables:
           S3ERRORS: whom-poc-logs
@@ -597,7 +613,7 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSQSReturnQueue.Arn
-            BatchSize: 1
+            BatchSize: 10
 
   whomFrameworkPersist:
     Type: AWS::Serverless::Function
