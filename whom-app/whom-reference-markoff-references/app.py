@@ -55,9 +55,9 @@ def lambda_handler(event,context):
             update_chunk_status(ticket_chunk_s3_key,new_count=new_completed_cnt,new_status=new_status)
             insert_outcome_record(messageId=messageid,ticketguid=ticket_guid,system_reference=system_reference,source=source,identity_object_name=identity_object_name,outcome_result=outcome_result,passed_identity_guid=passed_identity_guid,actual_identity_guid=actual_identity_guid,reason=reason,ticketchunkkey=ticket_chunk_s3_key)
 
-        b = bytes(str('success\n'+str(message_body)), 'utf-8')
-        f = io.BytesIO(b)
-        s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_reference_markoff.log')    
+        # b = bytes(str('success\n'+str(message_body)), 'utf-8')
+        # f = io.BytesIO(b)
+        # s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_reference_markoff.log')    
 
         return {
             'statusCode':200,

@@ -29,9 +29,9 @@ def lambda_handler(event,context):
                 messageid = add_sqs_message(ticketguid,identityobjectname=identity_object_name,ticketguid=ticketguid)
                 update_ticket_guid(ticket_guid=ticketguid,messageid=messageid,updatetimestr=dt_string)
                 
-                b  = bytes(f'success {ticketguid} - {str(messageid)}', 'utf-8')
-                f = io.BytesIO(b)
-                s3_client.upload_fileobj(f, s3_errors, f'{ticketguid}_whom_{dt_string}_send_to_sqs_send_success.log')    
+                # b  = bytes(f'success {ticketguid} - {str(messageid)}', 'utf-8')
+                # f = io.BytesIO(b)
+                # s3_client.upload_fileobj(f, s3_errors, f'{ticketguid}_whom_{dt_string}_send_to_sqs_send_success.log')    
                 return {
                     'statusCode': 200,
                     'body': j.dumps({
@@ -40,9 +40,9 @@ def lambda_handler(event,context):
                     })
                 }           
             else:
-                b  = bytes('insufficient chunks', 'utf-8')
-                f = io.BytesIO(b)
-                s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_sqs_chunks_not_enough.log')    
+                # b  = bytes('insufficient chunks', 'utf-8')
+                # f = io.BytesIO(b)
+                # s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_sqs_chunks_not_enough.log')    
                 return {
                     'statusCode': 200,
                     'body': j.dumps({

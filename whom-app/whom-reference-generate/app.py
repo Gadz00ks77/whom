@@ -139,7 +139,7 @@ def lambda_handler(event,context):
                 message = {}
 
                     
-        outfile(system_reference=j.dumps(message)+'\n\n'+str(event),s3_errors=s3_errors,s3_client=s3_client,timestring=dt_string)
+        # outfile(system_reference=j.dumps(message)+'\n\n'+str(event),s3_errors=s3_errors,s3_client=s3_client,timestring=dt_string)
         return {
             'statusCode':200,
             'headers': {
