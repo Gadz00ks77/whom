@@ -332,11 +332,12 @@ def add_modify_identity_message(content,identity_guid):
 def add_sqs_message(content,s3chunkkey):
 
     sqs = boto3.resource('sqs')
-    queue = sqs.get_queue_by_name(QueueName='WhomReturns.fifo')
+    queue = sqs.get_queue_by_name(QueueName='WhomReturns')
     response = queue.send_message(
-        MessageBody=content,
-        MessageGroupId=s3chunkkey,
-        MessageDeduplicationId=str(uuid.uuid4()))
+        MessageBody=content)
+        # MessageBody=content,
+        # MessageGroupId=s3chunkkey,
+        # MessageDeduplicationId=str(uuid.uuid4()))
     messageid = response.get('MessageId')
     
     return messageid
@@ -364,3 +365,8 @@ def replace_identity_map(system_reference,new_map):
     )
 
     return 0
+
+
+event = {'Records': [{'messageId': '653d438e-4211-405c-8f1c-900629a474da', 'receiptHandle': 'AQEB4heGnKnF923QkISDzk879XS5uwZALE3REQF1nSEBSjsn5kjC7N2wTVj7OQv8jwPYiliKlBR+g7S69esyITbXafBpRN8rdcLRI+1aO6fjC+zkgploJv+OxvrqYglr4eZGdXTCKMtGkzm+rEVT+GjV4kCt7XK0RJU8EVTYJf4kIU2l02mnxPGPPx+28KQFMsT4e5BGDWvrzk/tXH0HHyPVvVh9yTflrexFnOpYyJQODRfpMtkGrU7f67hnIWE8AfjSWf+bTErp1Yg1Hq1cXwyecTwe1iwEb9U6Zwtw23zjhN8=', 'body': '{"request": "MATCH", "reference_object": {"system reference": "7006", "source": "ECLIPSE", "identity_object": "RISK", "ticket_chunk_s3key": "254eb055-5ab4-45bd-84fb-9fcd5564b7bc/identity_object_acdd4fee-addd-4594-880b-079a336828f1.json"}}', 'attributes': {'ApproximateReceiveCount': '1', 'SentTimestamp': '1657132367991', 'SequenceNumber': '18870969959915247872', 'MessageGroupId': '7006', 'SenderId': 'AROAT4KRPMAT5X6Z5QVM7:whom-app-whomTicketProcessChunk-nkz5C9N4KI2H', 'MessageDeduplicationId': '307f434f-4d72-4688-bfdb-b54cdc4bd158', 'ApproximateFirstReceiveTimestamp': '1657132367991'}, 'messageAttributes': {}, 'md5OfBody': 'cded9f0446475d01b3bdf9555e14154c', 'eventSource': 'aws:sqs', 'eventSourceARN': 'arn:aws:sqs:eu-west-1:266995720231:WhomReferenceItems.fifo', 'awsRegion': 'eu-west-1'}]}
+
+lambda_handler(event=event,context=None)

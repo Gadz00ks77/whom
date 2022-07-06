@@ -26,6 +26,8 @@ def lambda_handler(event,context):
             messageid = record['messageId']
             actual_object = message_body['object']
             ticket_chunk_s3_key = actual_object['ticket_chunk_s3key']
+            split_chunk = ticket_chunk_s3_key.split('/')
+            ticket_guid = split_chunk[1]
             system_reference = actual_object['system reference']
             source = actual_object['source']
             identity_object_name = actual_object['identity_object']
@@ -38,21 +40,22 @@ def lambda_handler(event,context):
             else:
                 passed_identity_guid = ''
 
-            chunk_metadata = get_chunk_metadata(ticket_chunk_s3_key)
+            # chunk_metadata = get_chunk_metadata(ticket_chunk_s3_key)
 
-            ticket_guid = chunk_metadata['ticket_guid']
+            # ticket_guid = chunk_metadata['ticket_guid']
 
-            if 'completed_cnt' in chunk_metadata:
-                new_completed_cnt = chunk_metadata['completed_cnt']+1
-            else:
-                new_completed_cnt = 1
+            # if 'completed_cnt' in chunk_metadata:
+            #     new_completed_cnt = chunk_metadata['completed_cnt']+1
+            # else:
+            #     new_completed_cnt = 1
 
-            if new_completed_cnt >= chunk_metadata['object_cnt']:
-                new_status = 'COMPLETE'
-            else:
-                new_status = chunk_metadata['ticket_chunk_status']
+            # if new_completed_cnt >= chunk_metadata['object_cnt']:
+            #     new_status = 'COMPLETE'
+            # else:
+            #     new_status = chunk_metadata['ticket_chunk_status']
 
-            update_chunk_status(ticket_chunk_s3_key,new_count=new_completed_cnt,new_status=new_status)
+            # update_chunk_status(ticket_chunk_s3_key,new_count=new_completed_cnt,new_status=new_status)
+            update_chunk_status(s3key=ticket_chunk_s3_key)
             insert_outcome_record(messageId=messageid,ticketguid=ticket_guid,system_reference=system_reference,source=source,identity_object_name=identity_object_name,outcome_result=outcome_result,passed_identity_guid=passed_identity_guid,actual_identity_guid=actual_identity_guid,reason=reason,ticketchunkkey=ticket_chunk_s3_key)
 
         # b = bytes(str('success\n'+str(message_body)), 'utf-8')
@@ -83,7 +86,7 @@ def lambda_handler(event,context):
             })
         }
 
-def update_chunk_status(s3key,new_count,new_status):
+def update_chunk_status(s3key):
 
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
@@ -93,11 +96,10 @@ def update_chunk_status(s3key,new_count,new_status):
         Key={
             'ticket_chunk_s3key':s3key
         },
-        UpdateExpression="set last_updated_on = :u,ticket_chunk_status = :s,completed_cnt = :c, update_reason = :ur",
+        UpdateExpression="set last_updated_on = :u,completed_cnt = completed_cnt + :c, update_reason = :ur",
         ExpressionAttributeValues={
             ':u': dt_string,
-            ':s': new_status,
-            ':c': new_count,
+            ':c': 1,
             ':ur': 'MARK OFF'
         },
         ReturnValues="UPDATED_NEW"
@@ -134,3 +136,4 @@ def insert_outcome_record(messageId,system_reference,source,identity_object_name
             }
 
     resp = table.put_item(Item=org_item)
+

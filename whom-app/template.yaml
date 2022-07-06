@@ -133,8 +133,8 @@ Resources:
   WhomSQSReturnQueue:
     Type: AWS::SQS::Queue
     Properties:
-      FifoQueue: True 
-      QueueName: WhomReturns.fifo
+      # FifoQueue: True 
+      QueueName: WhomReturns
       VisibilityTimeout: 60
 
   WhomSQSAssociationsQueue:
@@ -514,7 +514,7 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSqsQueue.Arn
-            BatchSize: 1
+            BatchSize: 10
 
   whomIdentityExtPropAddTrigger:
     Type: AWS::Serverless::Function
@@ -575,7 +575,7 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSqsReferenceQueue.Arn
-            BatchSize: 1
+            BatchSize: 10
 
   whomModifyIdentities:
     Type: AWS::Serverless::Function
