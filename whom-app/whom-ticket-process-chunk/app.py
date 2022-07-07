@@ -19,6 +19,8 @@ def lambda_handler(event,context):
             s3chunkguid = record['dynamodb']['Keys']['ticket_chunk_s3key']['S']
             chunk_object = record['dynamodb']['NewImage']
             ticket_chunk_status = chunk_object['ticket_chunk_status']['S']
+            completed_cnt = chunk_object['completed_cnt']['N']
+            object_cnt = chunk_object['object_cnt']['N']
             update_reason = chunk_object['update_reason']['S']
             ticket_guid = chunk_object['ticket_guid']['S']
 
@@ -62,6 +64,10 @@ def lambda_handler(event,context):
                 })
             }
 
+        elif ticket_chunk_status == 'PROCESSING' and update_reason == 'MARK OFF' and completed_cnt >= object_cnt:
+            add_completion_message(s3chunkguid)
+            # update_chunk_status(s3key=s3chunkguid,to_status='COMPLETE',update_reason='COMPLETED')
+
         elif ticket_chunk_status == 'COMPLETE':
             if check_all_chunks_complete(ticket_guid) == 1:
                 update_ticket_status(ticket_guid,'COMPLETE')
@@ -99,6 +105,16 @@ def add_sqs_message(content,system_reference):
         MessageBody=content,
         MessageGroupId=system_reference,
         MessageDeduplicationId=str(uuid.uuid4()))
+    messageid = response.get('MessageId')
+    
+    return messageid
+
+def add_completion_message(content):
+
+    sqs = boto3.resource('sqs')
+    queue = sqs.get_queue_by_name(QueueName='WhomChunkCompletion')
+    response = queue.send_message(
+        MessageBody=content)
     messageid = response.get('MessageId')
     
     return messageid
@@ -156,6 +172,26 @@ def check_all_chunks_complete(ticketguid):
         return 1 # ALL CHUNKS ARE COMPLETE
     else:
         return 0
+
+def update_chunk_status(s3key,to_status,update_reason):
+
+    now = datetime.now()
+    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+
+    table = boto3.resource('dynamodb').Table('whom_ticket_chunk_keys')
+    response = table.update_item(
+        Key={
+            'ticket_chunk_s3key':s3key
+        },
+        UpdateExpression="set last_updated_on = :u,ticket_chunk_status = :s, update_reason = :ur",
+        ExpressionAttributeValues={
+            ':u': dt_string,
+            ':s': to_status,
+            ':ur': update_reason
+        },
+        ReturnValues="UPDATED_NEW"
+    )
+
 
 def update_ticket_status(ticket_guid,to_status):
 

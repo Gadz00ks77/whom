@@ -117,6 +117,12 @@ Resources:
       QueueName: WhomIdentitiesItems.fifo
       VisibilityTimeout: 60
 
+  WhomSQSChunkCompletion:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: WhomChunkCompletion
+      VisibilityTimeout: 60
+
   WhomSQSDeadLetter:
     Type: AWS::SQS::Queue
     Properties:
@@ -515,6 +521,24 @@ Resources:
           Properties:
             Queue: !GetAtt WhomSqsQueue.Arn
             BatchSize: 10
+
+  whomTicketChunkCompletion:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-ticket-chunk-complete/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 128
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSQSChunkCompletion.Arn
+            BatchSize: 1
 
   whomIdentityExtPropAddTrigger:
     Type: AWS::Serverless::Function
