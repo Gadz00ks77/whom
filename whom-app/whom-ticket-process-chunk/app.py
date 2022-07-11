@@ -43,20 +43,28 @@ def lambda_handler(event,context):
                 messageid = add_sqs_message(content=j.dumps(output_object),system_reference=reference_object['system reference'])
                 update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
             else:
-                for obj in reference_object:
-                    obj['identity_object'] = identity_object
-                    obj['ticket_chunk_s3key'] = s3chunkguid
-                    output_obj = {
-                        'request':'MATCH',
-                        'reference_object':obj
-                    }
-                    # jobj = j.dumps(obj)
-                    messageid = add_sqs_message(content=j.dumps(output_obj),system_reference=obj['system reference'])
+
+                send_obj = {
+                    'identity_object': identity_object,
+                    'ticket_chunk_s3key': s3chunkguid,
+                    'reference_object': reference_object
+                }
+                messageid = add_processor_message(content=j.dumps(send_obj),ticket_guid=ticket_guid,s3chunkguid=s3chunkguid)
+                # for obj in reference_object:
+                #     obj['identity_object'] = identity_object
+                #     obj['ticket_chunk_s3key'] = s3chunkguid
+                #     output_obj = {
+                #         'request':'MATCH',
+                #         'reference_object':obj
+                #     }
+                #     # jobj = j.dumps(obj)
+                #     target = get_queue_target(obj['system reference'])
+                #     messageid = add_sqs_message(content=j.dumps(output_obj),system_reference=obj['system reference'],target_queue=target)
                 update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
 
             b = bytes(str('success')+'\n'+str(event), 'utf-8')
             f = io.BytesIO(b)
-            s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_reference_sqs.log')    
+            s3_client.upload_fileobj(f, s3_errors, f'whom_send_to_reference_sqs_{dt_string}.log')    
             return {
                 'statusCode': 200,
                 'body': j.dumps({
@@ -64,7 +72,10 @@ def lambda_handler(event,context):
                 })
             }
 
-        elif ticket_chunk_status == 'PROCESSING' and update_reason == 'MARK OFF' and completed_cnt >= object_cnt:
+        elif ticket_chunk_status == 'PROCESSING' and update_reason == 'MARK OFF' and int(completed_cnt) >= int(object_cnt):
+            ab = bytes(str('success')+'\n'+str(event), 'utf-8')
+            af = io.BytesIO(ab)
+            s3_client.upload_fileobj(af, s3_errors, f'whom_send_to_reference_fire_completion_{dt_string}.log')    
             add_completion_message(s3chunkguid)
             # update_chunk_status(s3key=s3chunkguid,to_status='COMPLETE',update_reason='COMPLETED')
 
@@ -97,16 +108,34 @@ def lambda_handler(event,context):
             })
         }
 
-def add_sqs_message(content,system_reference):
+def add_sqs_message(content,system_reference,target_queue=None):
+
+    if target_queue == None:
+        TargetQueueName = 'WhomReferenceItems.fifo'
+    else:
+        TargetQueueName = target_queue
 
     sqs = boto3.resource('sqs')
-    queue = sqs.get_queue_by_name(QueueName='WhomReferenceItems.fifo')
+    queue = sqs.get_queue_by_name(QueueName=TargetQueueName)
     response = queue.send_message(
         MessageBody=content,
         MessageGroupId=system_reference,
         MessageDeduplicationId=str(uuid.uuid4()))
     messageid = response.get('MessageId')
     
+    return messageid
+
+def add_processor_message(content,ticket_guid,s3chunkguid):
+
+    sqs = boto3.resource('sqs')
+    queue = sqs.get_queue_by_name(QueueName='WhomChunkProcessor.fifo')
+    response = queue.send_message(
+        MessageBody=content,
+        MessageGroupId=ticket_guid,
+        MessageDeduplicationId=s3chunkguid
+    )
+    messageid = response.get('MessageId')
+
     return messageid
 
 def add_completion_message(content):
@@ -212,3 +241,29 @@ def update_ticket_status(ticket_guid,to_status):
     )
 
     return 0
+
+def get_queue_target(reference):
+
+    str_reference = str(reference)
+    last_char = str_reference[len(str_reference)-1]
+
+    if last_char == 2:
+        return 'WhomReferenceItems_Z.fifo'
+    elif last_char == 3:
+        return 'WhomReferenceItems_Y.fifo'
+    elif last_char == 4:
+        return 'WhomReferenceItems_X.fifo'
+    elif last_char == 5:
+        return 'WhomReferenceItems_A.fifo'
+    elif last_char == 6:
+        return 'WhomReferenceItems_B.fifo'
+    elif last_char == 7:
+        return 'WhomReferenceItems_C.fifo'
+    elif last_char == 8:
+        return 'WhomReferenceItems_D.fifo'
+    elif last_char == 9:
+        return 'WhomReferenceItems_E.fifo'
+    else:
+        return 'WhomReferenceItems.fifo'
+
+

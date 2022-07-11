@@ -12,8 +12,8 @@ def lambda_handler(event,context):
     s3_errors = os.environ['S3ERRORS']
 
     s3_client = boto3.client('s3')
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('whom_ticket')
+    # dynamodb = boto3.resource('dynamodb')
+    # table = dynamodb.Table('whom_ticket')
     
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]

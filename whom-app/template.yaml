@@ -101,7 +101,94 @@ Resources:
     Properties:
       FifoQueue: True
       QueueName: WhomReferenceItems.fifo
+      VisibilityTimeout: 60
+
+  WhomChunkProcessorQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomChunkProcessor.fifo
       VisibilityTimeout: 300
+
+  WhomSqsReferenceQueueZ:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems_Z.fifo
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WhomSQSDeadLetter.Arn
+        maxReceiveCount: 2
+
+  WhomSqsReferenceQueueY:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems_Y.fifo
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WhomSQSDeadLetter.Arn
+        maxReceiveCount: 2
+
+  WhomSqsReferenceQueueX:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems_X.fifo
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WhomSQSDeadLetter.Arn
+        maxReceiveCount: 2
+
+  WhomSqsReferenceQueueA:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems_A.fifo
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WhomSQSDeadLetter.Arn
+        maxReceiveCount: 2
+
+  WhomSqsReferenceQueueB:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems_B.fifo
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WhomSQSDeadLetter.Arn
+        maxReceiveCount: 2
+
+  WhomSqsReferenceQueueC:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems_C.fifo
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WhomSQSDeadLetter.Arn
+        maxReceiveCount: 2
+
+  WhomSqsReferenceQueueD:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems_D.fifo
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WhomSQSDeadLetter.Arn
+        maxReceiveCount: 2
+
+  WhomSqsReferenceQueueE:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: True
+      QueueName: WhomReferenceItems_E.fifo
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WhomSQSDeadLetter.Arn
+        maxReceiveCount: 2
 
   WhomSqsAddPropQueue:
     Type: AWS::SQS::Queue
@@ -126,7 +213,8 @@ Resources:
   WhomSQSDeadLetter:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: WhomDLQueue
+      FifoQueue: True
+      QueueName: WhomDLQueue.fifo
       VisibilityTimeout: 60
 
   WhomSqsFrameworkBuilder:
@@ -522,6 +610,26 @@ Resources:
             Queue: !GetAtt WhomSqsQueue.Arn
             BatchSize: 10
 
+  # whomTicketChunkProcessor:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     CodeUri: whom-ticket-chunk-msg-processor/
+  #     Handler: app.lambda_handler
+  #     Runtime: python3.8
+  #     Timeout: 300
+  #     Environment:
+  #       Variables:
+  #         S3ERRORS: whom-poc-logs
+  #         S3LANDING: whom-poc-landing
+  #     Role: arn:aws:iam::266995720231:role/whom-role
+  #     MemorySize: 128
+  #     Events:
+  #       whom:
+  #         Type: SQS
+  #         Properties:
+  #           Queue: !GetAtt WhomChunkProcessorQueue.Arn
+  #           BatchSize: 10
+
   whomTicketChunkCompletion:
     Type: AWS::Serverless::Function
     Properties:
@@ -587,7 +695,7 @@ Resources:
       CodeUri: whom-reference-generate/
       Handler: app.lambda_handler
       Runtime: python3.8
-      Timeout: 300
+      Timeout: 60
       Environment:
         Variables:
           S3ERRORS: whom-poc-logs
@@ -599,6 +707,46 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSqsReferenceQueue.Arn
+            BatchSize: 10
+        whom2:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueueZ.Arn
+            BatchSize: 10
+        whom3:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueueY.Arn
+            BatchSize: 10
+        whom4:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueueX.Arn
+            BatchSize: 10
+        whom5:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueueA.Arn
+            BatchSize: 10
+        whom6:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueueB.Arn
+            BatchSize: 10
+        whom7:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueueC.Arn
+            BatchSize: 10
+        whom8:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueueD.Arn
+            BatchSize: 10
+        whom9:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomSqsReferenceQueueE.Arn
             BatchSize: 10
 
   whomModifyIdentities:
@@ -637,6 +785,28 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSQSReturnQueue.Arn
+            BatchSize: 10
+
+  whomChunkAsyncProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-ticket-chunk-async-processor/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Timeout: 300
+      Layers:
+        - arn:aws:lambda:eu-west-1:770693421928:layer:Klayers-p38-aiobotocore:6
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 512
+      Events:
+        whom:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WhomChunkProcessorQueue.Arn
             BatchSize: 10
 
   whomFrameworkPersist:
