@@ -20,6 +20,8 @@ def lambda_handler(event,context):
         for record in event['Records']:
             ticket_chunk_s3_key = record['body']
             update_chunk_status(ticket_chunk_s3_key)
+            ticket_guid = ticket_chunk_s3_key[0:ticket_chunk_s3_key.find('/')]
+            update_completed_chunks(ticket_guid=ticket_guid)
 
         b = bytes(str('success\n'+str(event)), 'utf-8')
         f = io.BytesIO(b)
@@ -68,4 +70,22 @@ def update_chunk_status(s3key):
         ReturnValues="UPDATED_NEW"
     )
 
+def update_completed_chunks(ticket_guid):
 
+    now = datetime.now()
+    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+
+    table = boto3.resource('dynamodb').Table('whom_ticket')
+    response = table.update_item(
+        Key={
+            'ticket_guid':ticket_guid
+        },
+        UpdateExpression="set ticket_updatedon = :u, completed_chunks = completed_chunks + :s",
+        ExpressionAttributeValues={
+            ':u': dt_string,
+            ':s': 1
+        },
+        ReturnValues="UPDATED_NEW"
+    )
+
+    return 0

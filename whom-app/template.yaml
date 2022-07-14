@@ -580,7 +580,7 @@ Resources:
           S3ERRORS: whom-poc-logs
           S3LANDING: whom-poc-landing
       Role: arn:aws:iam::266995720231:role/whom-role
-      MemorySize: 128
+      MemorySize: 256
       Events:
         whom:
           Type: DynamoDB
@@ -602,33 +602,13 @@ Resources:
           S3ERRORS: whom-poc-logs
           S3LANDING: whom-poc-landing
       Role: arn:aws:iam::266995720231:role/whom-role
-      MemorySize: 128
+      MemorySize: 512
       Events:
         whom:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSqsQueue.Arn
             BatchSize: 10
-
-  # whomTicketChunkProcessor:
-  #   Type: AWS::Serverless::Function
-  #   Properties:
-  #     CodeUri: whom-ticket-chunk-msg-processor/
-  #     Handler: app.lambda_handler
-  #     Runtime: python3.8
-  #     Timeout: 300
-  #     Environment:
-  #       Variables:
-  #         S3ERRORS: whom-poc-logs
-  #         S3LANDING: whom-poc-landing
-  #     Role: arn:aws:iam::266995720231:role/whom-role
-  #     MemorySize: 128
-  #     Events:
-  #       whom:
-  #         Type: SQS
-  #         Properties:
-  #           Queue: !GetAtt WhomChunkProcessorQueue.Arn
-  #           BatchSize: 10
 
   whomTicketChunkCompletion:
     Type: AWS::Serverless::Function
@@ -640,13 +620,13 @@ Resources:
         Variables:
           S3ERRORS: whom-poc-logs
       Role: arn:aws:iam::266995720231:role/whom-role
-      MemorySize: 128
+      MemorySize: 256
       Events:
         whom:
           Type: SQS
           Properties:
             Queue: !GetAtt WhomSQSChunkCompletion.Arn
-            BatchSize: 1
+            BatchSize: 10
 
   whomIdentityExtPropAddTrigger:
     Type: AWS::Serverless::Function
@@ -678,7 +658,7 @@ Resources:
           S3ERRORS: whom-poc-logs
           S3LANDING: whom-poc-landing
       Role: arn:aws:iam::266995720231:role/whom-role
-      MemorySize: 128
+      MemorySize: 256
       Events:
         whom:
           Type: DynamoDB
@@ -794,6 +774,7 @@ Resources:
       Handler: app.lambda_handler
       Runtime: python3.8
       Timeout: 300
+      ReservedConcurrentExecutions: 5
       Layers:
         - arn:aws:lambda:eu-west-1:770693421928:layer:Klayers-p38-aiobotocore:6
       Environment:

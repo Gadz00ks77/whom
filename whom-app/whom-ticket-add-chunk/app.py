@@ -174,9 +174,10 @@ def update_ticket_guid(ticket_guid,updatetimestr):
         Key={
             'ticket_guid':ticket_guid
         },
-        UpdateExpression="set ticket_updatedon = :u",
+        UpdateExpression="set ticket_updatedon = :u, delivered_chunks = delivered_chunks + :dc",
         ExpressionAttributeValues={
             ':u': updatetimestr,
+            ':dc': 1
         },
         ReturnValues="UPDATED_NEW"
     )

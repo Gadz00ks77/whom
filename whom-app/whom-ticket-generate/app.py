@@ -86,6 +86,8 @@ def lambda_handler(event,context):
                 ,'ticket_createdon':                dt_string
                 ,'ticket_updatedon':                dt_string
                 ,'identity_object_chunks':          identity_object_chunks
+                ,'delivered_chunks':                1
+                ,'completed_chunks':                0
                 }
 
         resp = table.put_item(Item=org_item)
@@ -149,6 +151,11 @@ def validate_content_schema(content_as_object):
     cnt = 0
 
     if isinstance(content_as_object,list):
+        
+        if len(content_as_object)==0:
+            output['result']=1
+            return output
+        
         for vals in content_as_object:
             cnt = cnt + 1
             if 'system reference' not in vals:

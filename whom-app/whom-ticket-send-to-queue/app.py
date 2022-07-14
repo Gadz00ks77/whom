@@ -20,47 +20,27 @@ def lambda_handler(event,context):
             total_chunks = ticket_object['identity_object_chunks']['N']
             ticket_status = ticket_object['ticket_status']['S']
             identity_object_name = ticket_object['identity_object_name']['S']
+            completed_chunks = ticket_object['completed_chunks']['N']
+            delivered_chunks_num = ticket_object['delivered_chunks']['N']
 
-        if ticket_status == 'RECEIVED':
-            delivered_chunks_num = get_delivered_chunks(ticketguid=ticketguid) # TO:DO - Eventual consistency issues: need a companion Lambda that accounts for the fact that the delivered chunks may be lagged via an index not yet being updated.
+        if ticket_status == 'RECEIVED' and int(total_chunks) == int(delivered_chunks_num):
+            
+            messageid = add_sqs_message(ticketguid,identityobjectname=identity_object_name,ticketguid=ticketguid)
+            update_ticket_guid(ticket_guid=ticketguid,to_status='QUEUED',updatetimestr=dt_string)
+            
+        elif completed_chunks >= total_chunks and ticket_status != 'COMPLETE': 
+            update_ticket_guid(ticket_guid=ticketguid,to_status='COMPLETE',updatetimestr=dt_string)
 
-            if int(total_chunks) == int(delivered_chunks_num):
-                
-                messageid = add_sqs_message(ticketguid,identityobjectname=identity_object_name,ticketguid=ticketguid)
-                update_ticket_guid(ticket_guid=ticketguid,messageid=messageid,updatetimestr=dt_string)
-                
-                # b  = bytes(f'success {ticketguid} - {str(messageid)}', 'utf-8')
-                # f = io.BytesIO(b)
-                # s3_client.upload_fileobj(f, s3_errors, f'{ticketguid}_whom_{dt_string}_send_to_sqs_send_success.log')    
-                return {
-                    'statusCode': 200,
-                    'body': j.dumps({
-                        'result':'success',
-                        'note':'check s3 log'
-                    })
-                }           
-            else:
-                # b  = bytes('insufficient chunks', 'utf-8')
-                # f = io.BytesIO(b)
-                # s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_sqs_chunks_not_enough.log')    
-                return {
-                    'statusCode': 200,
-                    'body': j.dumps({
-                        'result':'success',
-                        'note':'check s3 log'
-                    })
-                }  
-        # else:
-        #     b  = bytes(f'guid {ticketguid} was already sent to the queue', 'utf-8')
-        #     f = io.BytesIO(b)
-        #     s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_send_to_sqs_already_sent.log')    
-        #     return {
-        #         'statusCode': 200,
-        #         'body': j.dumps({
-        #             'result':'success',
-        #             'note':'check s3 log'
-        #         })
-        #     }  
+        else:
+            pass
+
+        return {
+            'statusCode': 200,
+            'body': j.dumps({
+                'result':'success',
+                'note':'check s3 log'
+            })
+        }           
 
     except Exception as e:
         b = bytes(str(e)+'\n'+str(event), 'utf-8')
@@ -74,22 +54,6 @@ def lambda_handler(event,context):
             })
         }
 
-def full_query(table, **kwargs):
-    response = table.query(**kwargs)
-    items = response['Items']
-    while 'LastEvaluatedKey' in response:
-        response = table.query(ExclusiveStartKey=response['LastEvaluatedKey'], **kwargs)
-        items.extend(response['Items'])
-    return items
-
-def get_delivered_chunks(ticketguid):
-
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('whom_ticket_chunk_keys')
-    full_items = full_query(table,IndexName="ticket_guid-index",
-                    KeyConditionExpression=Key('ticket_guid').eq(ticketguid))
-    return len(full_items)
-
 def add_sqs_message(content,identityobjectname,ticketguid):
 
     sqs = boto3.resource('sqs')
@@ -102,20 +66,20 @@ def add_sqs_message(content,identityobjectname,ticketguid):
     
     return messageid
 
-def update_ticket_guid(ticket_guid,messageid,updatetimestr):
+def update_ticket_guid(ticket_guid,updatetimestr,to_status):
 
     table = boto3.resource('dynamodb').Table('whom_ticket')
     response = table.update_item(
         Key={
             'ticket_guid':ticket_guid
         },
-        UpdateExpression="set ticket_updatedon = :u, ticket_status = :s, sqsmessageid = :m",
+        UpdateExpression="set ticket_updatedon = :u, ticket_status = :s",
         ExpressionAttributeValues={
             ':u': updatetimestr,
-            ':s': 'QUEUED',
-            ':m': messageid
+            ':s': to_status
         },
         ReturnValues="UPDATED_NEW"
     )
 
     return 0
+

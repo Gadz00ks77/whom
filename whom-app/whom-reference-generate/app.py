@@ -12,8 +12,6 @@ def lambda_handler(event,context):
     s3_errors = os.environ['S3ERRORS']
 
     s3_client = boto3.client('s3')
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('whom_ticket')
     
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
@@ -66,11 +64,6 @@ def lambda_handler(event,context):
                             message = {'outcome':'success','object':reference_object,'reason':'new reference, added to modify identity queue'}
                             add_modify_identity_message(j.dumps(message),identity_guid)
 
-                            # OLD
-                            # modify_identity(reference=system_reference,source_ticket='tbc',source=source,identity_guid=identity_guid)
-                            # reference_object['identity_guid'] = identity_guid
-                            # message = {'outcome':'success','object':reference_object,'reason':'new reference, added to identity'}
-                            # add_sqs_message(j.dumps(message),ticket_chunk_s3key)
                         elif exist_outcome['result']=='Reference,Source,Object':
                             # CHECK IF PASSED IDENTITY MATCHES
                             if exist_outcome['identity_map']['M']['identity_guid']['S'] == identity_guid:
@@ -92,11 +85,6 @@ def lambda_handler(event,context):
                                 message = {'outcome':'success','object':reference_object,'reason':'new reference, added to modify identity queue'}
                                 add_modify_identity_message(j.dumps(message),identity_guid)
 
-                                # OLD
-                                # modify_identity(reference=system_reference,source_ticket='tbc',source=source,identity_guid=identity_guid)
-                                # reference_object['identity_guid'] = exist_outcome['identity_map']['M']['identity_guid']['S'] 
-                                # message = {'outcome':'success','object':reference_object,'reason':'modified reference and identity objects'}
-                                # add_sqs_message(j.dumps(message),ticket_chunk_s3key)
                             else:
                                 # EXIT HERE: I've seen this before in some capacity, but you've given me the wrong identity_guid
                                 reference_object['identity_guid'] = exist_outcome['identity_map']['M']['identity_guid']['S'] 

@@ -13,8 +13,6 @@ def lambda_handler(event,context):
     s3_errors = os.environ['S3ERRORS']
 
     s3_client = boto3.client('s3')
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('whom_ticket')
     
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
@@ -40,28 +38,9 @@ def lambda_handler(event,context):
             else:
                 passed_identity_guid = ''
 
-            # chunk_metadata = get_chunk_metadata(ticket_chunk_s3_key)
-
-            # ticket_guid = chunk_metadata['ticket_guid']
-
-            # if 'completed_cnt' in chunk_metadata:
-            #     new_completed_cnt = chunk_metadata['completed_cnt']+1
-            # else:
-            #     new_completed_cnt = 1
-
-            # if new_completed_cnt >= chunk_metadata['object_cnt']:
-            #     new_status = 'COMPLETE'
-            # else:
-            #     new_status = chunk_metadata['ticket_chunk_status']
-
-            # update_chunk_status(ticket_chunk_s3_key,new_count=new_completed_cnt,new_status=new_status)
-            update_chunk_status(s3key=ticket_chunk_s3_key)
             insert_outcome_record(messageId=messageid,ticketguid=ticket_guid,system_reference=system_reference,source=source,identity_object_name=identity_object_name,outcome_result=outcome_result,passed_identity_guid=passed_identity_guid,actual_identity_guid=actual_identity_guid,reason=reason,ticketchunkkey=ticket_chunk_s3_key)
-
-        # b = bytes(str('success\n'+str(message_body)), 'utf-8')
-        # f = io.BytesIO(b)
-        # s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_reference_markoff.log')    
-
+            update_chunk_status(s3key=ticket_chunk_s3_key)
+ 
         return {
             'statusCode':200,
             'headers': {
