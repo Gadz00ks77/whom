@@ -19,8 +19,8 @@ def lambda_handler(event,context):
             s3chunkguid = record['dynamodb']['Keys']['ticket_chunk_s3key']['S']
             chunk_object = record['dynamodb']['NewImage']
             ticket_chunk_status = chunk_object['ticket_chunk_status']['S']
-            completed_cnt = chunk_object['completed_cnt']['N']
-            object_cnt = chunk_object['object_cnt']['N']
+            # completed_cnt = chunk_object['completed_cnt']['N']
+            # object_cnt = chunk_object['object_cnt']['N']
             update_reason = chunk_object['update_reason']['S']
             ticket_guid = chunk_object['ticket_guid']['S']
 
@@ -51,8 +51,8 @@ def lambda_handler(event,context):
                     messageid = add_processor_message(content=j.dumps(send_obj),ticket_guid=ticket_guid,s3chunkguid=s3chunkguid)
                     update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
 
-            elif ticket_chunk_status == 'PROCESSING' and update_reason == 'MARK OFF' and int(completed_cnt) >= int(object_cnt):
-                add_completion_message(s3chunkguid)
+            # elif ticket_chunk_status == 'PROCESSING' and update_reason == 'MARK OFF' and int(completed_cnt) >= int(object_cnt):
+            #     add_completion_message(s3chunkguid)
                 
             else:
                 pass
@@ -207,3 +207,6 @@ def get_queue_target(reference):
         return 'WhomReferenceItems.fifo'
 
 
+# event = {'Records': [{'eventID': '652c8ab85688633420c40921bfec4dad', 'eventName': 'INSERT', 'eventVersion': '1.1', 'eventSource': 'aws:dynamodb', 'awsRegion': 'eu-west-1', 'dynamodb': {'ApproximateCreationDateTime': 1658141903.0, 'Keys': {'ticket_chunk_s3key': {'S': 'a8ee4ffa-7b8a-4f07-8213-af1e608800e6/identity_object_471a0d68-31c8-4580-ad3d-167e17721eee.json'}}, 'NewImage': {'object_cnt': {'N': '10'}, 'completed_cnt': {'N': '0'}, 'ticket_chunk_status': {'S': 'RECEIVED'}, 'update_reason': {'S': 'NEW'}, 'last_updated_on': {'S': '20220718105823130'}, 'ticket_guid': {'S': 'a8ee4ffa-7b8a-4f07-8213-af1e608800e6'}, 'ticket_chunk_s3key': {'S': 'a8ee4ffa-7b8a-4f07-8213-af1e608800e6/identity_object_471a0d68-31c8-4580-ad3d-167e17721eee.json'}}, 'SequenceNumber': '700000000011359917777', 'SizeBytes': 372, 'StreamViewType': 'NEW_IMAGE'}, 'eventSourceARN': 'arn:aws:dynamodb:eu-west-1:266995720231:table/whom_ticket_chunk_keys/stream/2022-07-18T10:16:59.356'}]}
+
+# lambda_handler(event=event,context=None)

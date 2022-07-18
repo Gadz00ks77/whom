@@ -36,7 +36,7 @@ async def send_msg(event):
                         MessageDeduplicationId=str(uuid.uuid4()),
                         MessageBody=j.dumps(output_obj)
                     )
-                    print('yeah')
+                    # print('yeah')
 
 def lambda_handler(event, context):
 

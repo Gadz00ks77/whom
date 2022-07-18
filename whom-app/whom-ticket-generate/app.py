@@ -77,6 +77,7 @@ def lambda_handler(event,context):
 
         put_to_s3(identityticketuuid,content,content_s3_key)
         add_chunk_key(identityticketuuid=identityticketuuid,ticket_chunk_s3_key=content_s3_key,objects=cnt)
+        add_chunk_counter(identityticketuuid=identityticketuuid,ticket_chunk_s3_key=content_s3_key,objects=cnt)
 
         org_item = {
                 'ticket_guid':                      identityticketuuid
@@ -201,4 +202,21 @@ def add_chunk_key(identityticketuuid,ticket_chunk_s3_key,objects):
 
     resp = table.put_item(Item=item)
 
+def add_chunk_counter(identityticketuuid,ticket_chunk_s3_key,objects):
+
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('whom_ticket_chunk_counter')
+
+    now = datetime.now()
+    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+
+    item = {
+                'ticket_chunk_s3key':   ticket_chunk_s3_key,
+                'ticket_guid':          identityticketuuid,
+                'object_cnt':           objects,
+                'completed_cnt':        0,
+                'last_updated_on': dt_string,
+                }
+
+    resp = table.put_item(Item=item)
 

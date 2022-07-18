@@ -1,4 +1,3 @@
-import chunk
 import boto3
 import os
 from datetime import datetime
@@ -25,7 +24,7 @@ def lambda_handler(event,context):
             actual_object = message_body['object']
             ticket_chunk_s3_key = actual_object['ticket_chunk_s3key']
             split_chunk = ticket_chunk_s3_key.split('/')
-            ticket_guid = split_chunk[1]
+            ticket_guid = split_chunk[0]
             system_reference = actual_object['system reference']
             source = actual_object['source']
             identity_object_name = actual_object['identity_object']
@@ -39,7 +38,7 @@ def lambda_handler(event,context):
                 passed_identity_guid = ''
 
             insert_outcome_record(messageId=messageid,ticketguid=ticket_guid,system_reference=system_reference,source=source,identity_object_name=identity_object_name,outcome_result=outcome_result,passed_identity_guid=passed_identity_guid,actual_identity_guid=actual_identity_guid,reason=reason,ticketchunkkey=ticket_chunk_s3_key)
-            update_chunk_status(s3key=ticket_chunk_s3_key)
+            update_chunk_counter(s3key=ticket_chunk_s3_key,ticket_guid=ticket_guid)
  
         return {
             'statusCode':200,
@@ -75,14 +74,59 @@ def update_chunk_status(s3key):
         Key={
             'ticket_chunk_s3key':s3key
         },
-        UpdateExpression="set last_updated_on = :u,completed_cnt = completed_cnt + :c, update_reason = :ur",
+        UpdateExpression="set last_updated_on = :u, update_reason = :ur, ticket_chunk_status = :tcs",
         ExpressionAttributeValues={
             ':u': dt_string,
-            ':c': 1,
-            ':ur': 'MARK OFF'
+            ':ur': 'COMPLETED',
+            ':tcs': 'COMPLETE'
         },
         ReturnValues="UPDATED_NEW"
     )
+
+def increment_completed_chunks(ticket_guid):
+
+    now = datetime.now()
+    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+
+    table = boto3.resource('dynamodb').Table('whom_ticket')
+    response = table.update_item(
+        Key={
+            'ticket_guid': ticket_guid
+        },
+        UpdateExpression="set completed_chunks = completed_chunks + :c",
+        ExpressionAttributeValues={
+            # ':u': dt_string,
+            ':c': 1
+        },
+        ReturnValues="UPDATED_NEW"
+    )
+
+def update_chunk_counter(s3key,ticket_guid):
+
+# whom_ticket_chunk_counter
+
+    now = datetime.now()
+    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+
+    table = boto3.resource('dynamodb').Table('whom_ticket_chunk_counter')
+    response = table.update_item(
+        Key={
+            'ticket_chunk_s3key':s3key
+        },
+        UpdateExpression="set last_updated_on = :u,object_cnt = object_cnt,completed_cnt = completed_cnt + :c",
+        ExpressionAttributeValues={
+            ':u': dt_string,
+            ':c': 1
+        },
+        ReturnValues="UPDATED_NEW"
+    )
+
+    object_cnt = response['Attributes']['object_cnt']
+    completed_cnt = response['Attributes']['completed_cnt']
+
+    if completed_cnt>=object_cnt:
+        update_chunk_status(s3key=s3key)
+        increment_completed_chunks(ticket_guid=ticket_guid)
 
 def get_chunk_metadata(s3key):
 
@@ -115,4 +159,3 @@ def insert_outcome_record(messageId,system_reference,source,identity_object_name
             }
 
     resp = table.put_item(Item=org_item)
-
