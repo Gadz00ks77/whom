@@ -5,6 +5,7 @@ import io
 from boto3.dynamodb.conditions import Key
 import json as j
 import uuid
+import hashlib
 
 def lambda_handler(event,context):
 
@@ -17,6 +18,7 @@ def lambda_handler(event,context):
         # BATCH SIZE IS ONE - SO THE INITIAL LOOP IS SIMPLY TO GET A SINGLE RECORD
         for record in event['Records']:
             s3chunkguid = record['dynamodb']['Keys']['ticket_chunk_s3key']['S']
+            s3chunkguidpathonly = s3chunkguid[0:s3chunkguid.find('.')]
             chunk_object = record['dynamodb']['NewImage']
             ticket_chunk_status = chunk_object['ticket_chunk_status']['S']
             # completed_cnt = chunk_object['completed_cnt']['N']
@@ -26,8 +28,9 @@ def lambda_handler(event,context):
 
             ticket_metadata = get_ticket_metadata(ticketguid=ticket_guid)
             identity_object = ticket_metadata['identity_object_name']['S']
+            submit_method = ticket_metadata['submit_method']['S']
 
-            if ticket_chunk_status == 'PROCESSING' and update_reason == 'START':
+            if ticket_chunk_status == 'PROCESSING' and update_reason == 'START' and submit_method in ['EVENT-SINGLE','BATCH-SINGLE']:
 
                 jreference_object = get_s3_object(s3chunkguid)
                 reference_object = j.loads(jreference_object)
@@ -51,9 +54,34 @@ def lambda_handler(event,context):
                     messageid = add_processor_message(content=j.dumps(send_obj),ticket_guid=ticket_guid,s3chunkguid=s3chunkguid)
                     update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
 
-            # elif ticket_chunk_status == 'PROCESSING' and update_reason == 'MARK OFF' and int(completed_cnt) >= int(object_cnt):
-            #     add_completion_message(s3chunkguid)
-                
+            elif ticket_chunk_status == 'PROCESSING' and update_reason == 'START' and submit_method in ['EVENT-BYREFERENCE','BATCH-BYREFERENCE']:
+
+                jreference_object = get_s3_object(s3chunkguid)
+                reference_object = j.loads(jreference_object)
+
+                if isinstance(reference_object,dict):
+                    str_ref = str(reference_object)
+                    # hash_object = hashlib.sha256(str_ref.encode('utf-8'))
+                    hex_dig = str(uuid.uuid4()) # hash_object.hexdigest()
+                    targets3key=s3chunkguidpathonly +'/'+hex_dig+'.json'
+                    land_set_file(set_nk=hex_dig,content=jreference_object,target_multi_s3key=targets3key)
+                    land_nk(hex_dig,s3chunkguid,targets3key)
+                    land_count(hex_dig,1,s3chunkguid)
+                    update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
+                elif isinstance(reference_object,list):
+                    set_cnt = 1
+                    for set in reference_object:
+                        str_ref = str(set)
+                        # hash_object = hashlib.sha256(str_ref.encode('utf-8'))
+                        hex_dig = str(uuid.uuid4()) # hash_object.hexdigest()
+                        targets3key=s3chunkguidpathonly +'/'+hex_dig+'.json'
+                        land_set_file(set_nk=hex_dig,content=j.dumps(set),target_multi_s3key=targets3key)
+                        land_nk(hex_dig,s3chunkguid,targets3key)
+                        land_count(hex_dig,set_cnt,s3chunkguid)
+                        
+
+                    update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
+
             else:
                 pass
 
@@ -106,15 +134,6 @@ def add_processor_message(content,ticket_guid,s3chunkguid):
 
     return messageid
 
-def add_completion_message(content):
-
-    sqs = boto3.resource('sqs')
-    queue = sqs.get_queue_by_name(QueueName='WhomChunkCompletion')
-    response = queue.send_message(
-        MessageBody=content)
-    messageid = response.get('MessageId')
-    
-    return messageid
 
 def get_s3_object(s3key):
 
@@ -143,25 +162,6 @@ def get_ticket_metadata(ticketguid):
     else: 
         return response_object
 
-def update_chunk_status(s3key,to_status,update_reason):
-
-    now = datetime.now()
-    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
-
-    table = boto3.resource('dynamodb').Table('whom_ticket_chunk_keys')
-    response = table.update_item(
-        Key={
-            'ticket_chunk_s3key':s3key
-        },
-        UpdateExpression="set last_updated_on = :u,ticket_chunk_status = :s, update_reason = :ur",
-        ExpressionAttributeValues={
-            ':u': dt_string,
-            ':s': to_status,
-            ':ur': update_reason
-        },
-        ReturnValues="UPDATED_NEW"
-    )
-
 def update_ticket_status(ticket_guid,to_status):
 
     now = datetime.now()
@@ -182,31 +182,42 @@ def update_ticket_status(ticket_guid,to_status):
 
     return 0
 
-def get_queue_target(reference):
+def land_nk(reference_object_hash,ticket_s3_key,set_s3_key):
 
-    str_reference = str(reference)
-    last_char = str_reference[len(str_reference)-1]
-
-    if last_char == 2:
-        return 'WhomReferenceItems_Z.fifo'
-    elif last_char == 3:
-        return 'WhomReferenceItems_Y.fifo'
-    elif last_char == 4:
-        return 'WhomReferenceItems_X.fifo'
-    elif last_char == 5:
-        return 'WhomReferenceItems_A.fifo'
-    elif last_char == 6:
-        return 'WhomReferenceItems_B.fifo'
-    elif last_char == 7:
-        return 'WhomReferenceItems_C.fifo'
-    elif last_char == 8:
-        return 'WhomReferenceItems_D.fifo'
-    elif last_char == 9:
-        return 'WhomReferenceItems_E.fifo'
-    else:
-        return 'WhomReferenceItems.fifo'
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('whom_ticket_stage_multi_reference_set')
 
 
-# event = {'Records': [{'eventID': '652c8ab85688633420c40921bfec4dad', 'eventName': 'INSERT', 'eventVersion': '1.1', 'eventSource': 'aws:dynamodb', 'awsRegion': 'eu-west-1', 'dynamodb': {'ApproximateCreationDateTime': 1658141903.0, 'Keys': {'ticket_chunk_s3key': {'S': 'a8ee4ffa-7b8a-4f07-8213-af1e608800e6/identity_object_471a0d68-31c8-4580-ad3d-167e17721eee.json'}}, 'NewImage': {'object_cnt': {'N': '10'}, 'completed_cnt': {'N': '0'}, 'ticket_chunk_status': {'S': 'RECEIVED'}, 'update_reason': {'S': 'NEW'}, 'last_updated_on': {'S': '20220718105823130'}, 'ticket_guid': {'S': 'a8ee4ffa-7b8a-4f07-8213-af1e608800e6'}, 'ticket_chunk_s3key': {'S': 'a8ee4ffa-7b8a-4f07-8213-af1e608800e6/identity_object_471a0d68-31c8-4580-ad3d-167e17721eee.json'}}, 'SequenceNumber': '700000000011359917777', 'SizeBytes': 372, 'StreamViewType': 'NEW_IMAGE'}, 'eventSourceARN': 'arn:aws:dynamodb:eu-west-1:266995720231:table/whom_ticket_chunk_keys/stream/2022-07-18T10:16:59.356'}]}
+    set_item = {
+                'set_nk':  reference_object_hash,
+                'ticket_chunk_s3key': ticket_s3_key,
+                'set_s3_key': set_s3_key,
+                'set_status': 'Received'
+                }
 
-# lambda_handler(event=event,context=None)
+    resp = table.put_item(Item=set_item)
+
+def land_count(reference_object_hash,set_cnt_received,ticket_s3_key):
+
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('whom_ticket_stage_multi_reference_counter')
+
+
+    set_item = {
+                'set_nk':  reference_object_hash,
+                'ticket_chunk_s3key': ticket_s3_key,
+                'set_count_received': set_cnt_received,
+                'set_count_completed': 0,
+                'refs_in_set_completed': 0
+                }
+
+    resp = table.put_item(Item=set_item)
+
+def land_set_file(set_nk,content,target_multi_s3key):
+
+    s3_landing = os.environ['S3MULTILANDING']
+    s3_client = boto3.client('s3')
+
+    b = bytes(str(content), 'utf-8')
+    f = io.BytesIO(b)
+    s3_client.upload_fileobj(f, s3_landing, target_multi_s3key) 

@@ -24,6 +24,17 @@ Resources:
         RestrictPublicBuckets: TRUE
       # AccessControl: Private
 
+  MultiLandingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: whom-poc-multi-landing
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      # AccessControl: Private
+
   AggStructBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -657,6 +668,7 @@ Resources:
         Variables:
           S3ERRORS: whom-poc-logs
           S3LANDING: whom-poc-landing
+          S3MULTILANDING: whom-poc-multi-landing
       Role: arn:aws:iam::266995720231:role/whom-role
       MemorySize: 256
       Events:
@@ -665,6 +677,54 @@ Resources:
           Properties:
             Stream: 
               !GetAtt DynamoWhomTickets3Keys.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+            Enabled: true
+
+  whomMultiRefSetProcess:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-multi-reference-process-set/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Timeout: 300
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+          S3MULTILANDING: whom-poc-multi-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 256
+      Events:
+        whom:
+          Type: DynamoDB
+          Properties:
+            Stream: 
+              !GetAtt DynamoWhomStgMultiSet.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+            Enabled: true
+
+  whomMultiRefsProcess:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: whom-multi-reference-process-reference/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Timeout: 300
+      Environment:
+        Variables:
+          S3ERRORS: whom-poc-logs
+          S3LANDING: whom-poc-landing
+          S3MULTILANDING: whom-poc-multi-landing
+      Role: arn:aws:iam::266995720231:role/whom-role
+      MemorySize: 256
+      Events:
+        whom:
+          Type: DynamoDB
+          Properties:
+            Stream: 
+              !GetAtt DynamoWhomStgMultiReference.StreamArn
             StartingPosition: TRIM_HORIZON
             BatchSize: 1
             Enabled: true
@@ -923,6 +983,8 @@ Resources:
     Properties:
       TableName: whom_references
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
         - AttributeName: system_reference
           AttributeType: S
@@ -935,6 +997,8 @@ Resources:
     Properties:
       TableName: whom_identities
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       AttributeDefinitions:
         - AttributeName: identity_guid
           AttributeType: S
@@ -1138,3 +1202,55 @@ Resources:
       KeySchema:
         - AttributeName: ticket_chunk_s3key
           KeyType: HASH
+
+  DynamoWhomStgMultiSet:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_ticket_stage_multi_reference_set
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: set_nk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: set_nk
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+
+  DynamoWhomStgMultiSetCounter:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_ticket_stage_multi_reference_counter
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: set_nk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: set_nk
+          KeyType: HASH
+
+  DynamoWhomStgMultiReference:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_ticket_stage_multi_references
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: reference_nk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: reference_nk
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+
+  DynamoWhomStgMultiSetIdentities:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: whom_ticket_stage_multi_set_idents
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: set_nk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: set_nk
+          KeyType: HASH  

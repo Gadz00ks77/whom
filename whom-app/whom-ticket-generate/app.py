@@ -37,22 +37,10 @@ def lambda_handler(event,context):
                 )
             }
 
-        valid_check = validate_content_schema(content_as_object=content_object)
-        
-        if valid_check['result'] == 1:
-                return {
-                    'statusCode': 400,
-                    'body': j.dumps({
-                        'result':'failure',
-                        'note':'payload did not match required schema'
-                    })
-                }              
-        else:
-            cnt = valid_check['cnt']
         
         content_s3_key = f'{identityticketuuid}/identity_object_{str(uuid.uuid4())}.json'
 
-        if submitmethod == 'EVENT':
+        if submitmethod in ['EVENT-SIMPLE','BATCH-SIMPLE']:
             identity_object_chunks = 1
         else:
             if not event['headers']:
@@ -74,6 +62,20 @@ def lambda_handler(event,context):
                         'note':'BATCH method specified but total chunks not specified in request Header'
                     })
                 }                
+
+        valid_check = validate_content_schema(content_as_object=content_object,submit_method = submitmethod)
+        
+        if valid_check['result'] == 1:
+                return {
+                    'statusCode': 400,
+                    'body': j.dumps({
+                        'result':'failure',
+                        'note':'payload did not match required schema'
+                    })
+                }              
+        else:
+            cnt = valid_check['cnt']
+
 
         put_to_s3(identityticketuuid,content,content_s3_key)
         add_chunk_key(identityticketuuid=identityticketuuid,ticket_chunk_s3_key=content_s3_key,objects=cnt)
@@ -102,7 +104,7 @@ def lambda_handler(event,context):
                 "Access-Control-Allow-Methods": "POST, OPTIONS" # Allow only POST request 
             },
             'body': j.dumps({
-                'result':identityticketuuid
+                'ticket guid':identityticketuuid
             })
         }
 
@@ -146,36 +148,55 @@ def put_to_s3(ticket_uuid,content,targets3key):
     s3_client.upload_fileobj(f, s3_landing, targets3key) 
 
 
-def validate_content_schema(content_as_object):
+def validate_content_schema(content_as_object,submit_method):
 
     output = {}
     cnt = 0
 
-    if isinstance(content_as_object,list):
-        
-        if len(content_as_object)==0:
-            output['result']=1
-            return output
-        
-        for vals in content_as_object:
-            cnt = cnt + 1
-            if 'system reference' not in vals:
+    if submit_method in ['EVENT-SIMPLE','BATCH-SIMPLE']:
+
+        if isinstance(content_as_object,list):
+            
+            if len(content_as_object)==0:
                 output['result']=1
                 return output
-            if 'source' not in vals:
+            
+            for vals in content_as_object:
+                cnt = cnt + 1
+                if 'system reference' not in vals:
+                    output['result']=1
+                    return output
+                if 'source' not in vals:
+                    output['result']=1
+                    return output
+        elif isinstance(content_as_object,dict):
+            cnt = 1
+            if 'system reference' not in content_as_object:
                 output['result']=1
                 return output
-    elif isinstance(content_as_object,dict):
-        cnt = 1
-        if 'system reference' not in content_as_object:
+            if 'source' not in content_as_object:
+                output['result']=1
+                return output
+        else:
             output['result']=1
             return output
-        if 'source' not in content_as_object:
+
+    elif submit_method in ['EVENT-BYREFERENCE','BATCH-BYREFERENCE']:
+
+        if isinstance(content_as_object,list):
+
+            for sets in content_as_object:
+                for references in sets:
+                    cnt = cnt + 1
+        
+        elif isinstance(content_as_object,dict):
+
+            for references in content_as_object:
+                cnt = cnt + 1
+
+        else:
             output['result']=1
             return output
-    else:
-        output['result']=1
-        return output
 
     output['result']=0
     output['cnt']=cnt

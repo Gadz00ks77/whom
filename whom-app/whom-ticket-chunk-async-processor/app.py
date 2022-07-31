@@ -17,6 +17,7 @@ async def send_msg(event):
 
         for record in event['Records']:
             body = j.loads(record['body'])
+            # push_example_delete_me(output_obj=j.dumps(body))
             identity_object = body['identity_object']
             s3chunkguid =  body['ticket_chunk_s3key']
             reference_object = body['reference_object']
@@ -36,8 +37,7 @@ async def send_msg(event):
                         MessageDeduplicationId=str(uuid.uuid4()),
                         MessageBody=j.dumps(output_obj)
                     )
-                    # print('yeah')
-
+                    
 def lambda_handler(event, context):
 
     s3_errors = os.environ['S3ERRORS']
@@ -110,3 +110,15 @@ def letter_num(char):
     return ord(char.upper())
 
 
+def push_example_delete_me(output_obj):
+
+    s3_errors = os.environ['S3ERRORS']
+    s3_client = boto3.client('s3')
+    now = datetime.now()
+    dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+
+    b = bytes(j.dumps(output_obj), 'utf-8')
+    f = io.BytesIO(b)
+    s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_ticket_chunk_processor_example.log')   
+
+    return 0 
