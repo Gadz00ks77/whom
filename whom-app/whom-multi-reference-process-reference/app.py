@@ -157,6 +157,3 @@ def update_set_status(set_nk):
 
     return 0
 
-# event = {'Records': [{'eventID': '3275c8cdc42538de0762959428ccbb5a', 'eventName': 'INSERT', 'eventVersion': '1.1', 'eventSource': 'aws:dynamodb', 'awsRegion': 'eu-west-1', 'dynamodb': {'ApproximateCreationDateTime': 1659083864.0, 'Keys': {'reference_nk': {'S': '969f6781-858b-4909-bb32-9c3f74ac757f'}}, 'NewImage': {'set_nk': {'S': '783958c0-5ea4-4843-9440-704e43b0280d'}, 'reference_nk': {'S': '969f6781-858b-4909-bb32-9c3f74ac757f'}, 'reference_object': {'M': {'system reference': {'S': '1002'}, 'source': {'S': 'ECLIPSE'}}}, 'ticket_chunk_s3key': {'S': '4b5e3416-8960-436e-a39e-2cb751eddb60/identity_object_efbdf560-c2d8-4cdb-9084-8637113f4dc2/783958c0-5ea4-4843-9440-704e43b0280d.json'}}, 'SequenceNumber': '23020300000000015528809424', 'SizeBytes': 341, 'StreamViewType': 'NEW_IMAGE'}, 'eventSourceARN': 'arn:aws:dynamodb:eu-west-1:266995720231:table/whom_ticket_stage_multi_references/stream/2022-07-24T10:57:54.453'}]}
-
-# lambda_handler(event=event,context=None)

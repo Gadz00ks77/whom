@@ -33,7 +33,7 @@ def lambda_handler(event,context):
             message = {'outcome':'success','object':reference_object,'reason':'modified reference and identity objects'}
             add_sqs_message(j.dumps(message),ticket_chunk_s3key)
                     
-        outfile(system_reference=j.dumps(message)+'\n\n'+str(event),s3_errors=s3_errors,s3_client=s3_client,timestring=dt_string)
+        # outfile(system_reference=j.dumps(message)+'\n\n'+str(event),s3_errors=s3_errors,s3_client=s3_client,timestring=dt_string)
 
         return {
             'statusCode':200,

@@ -169,9 +169,3 @@ def remove_populated_target(identity_guid,identity_object_type):
 
     return 1
 
-
-event = {'Records':[
-    {'body':'{"guid": "56f53891-9ae0-4132-96e5-5b28dfc547b3", "s3key": "PARTY/83e8506f-a940-4e55-955f-9d9bc277cbfd/20220624102613185/56f53891-9ae0-4132-96e5-5b28dfc547b3.json", "type": "create"}'}
-]}
-
-lambda_handler(event=event,context=None)

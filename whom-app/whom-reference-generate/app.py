@@ -114,10 +114,13 @@ def chk_exists(reference,source,identity_object):
                 found['identity_map'] = m
             elif m['M']['source']['S']!=source and m['M']['identity_object']['S']==identity_object:
                 found['result'] = 'Reference,Object'
+                found['identity_map'] = m
             elif m['M']['source']['S']==source and m['M']['identity_object']['S']!=identity_object:
                 found['result'] = 'Reference,Source'
+                found['identity_map'] = m
             elif m['M']['source']['S']!=source and m['M']['identity_object']['S']!=identity_object:
                 found['result'] = 'Reference Only'
+                found['identity_map'] = m
 
     return found
 
@@ -443,3 +446,4 @@ def add_identity_to_set(set_nk,identity_guid):
         
 
     return response
+

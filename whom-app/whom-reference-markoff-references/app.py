@@ -38,7 +38,7 @@ def lambda_handler(event,context):
                 passed_identity_guid = ''
 
             insert_outcome_record(messageId=messageid,ticketguid=ticket_guid,system_reference=system_reference,source=source,identity_object_name=identity_object_name,outcome_result=outcome_result,passed_identity_guid=passed_identity_guid,actual_identity_guid=actual_identity_guid,reason=reason,ticketchunkkey=ticket_chunk_s3_key)
-            update_chunk_counter(s3key=ticket_chunk_s3_key,ticket_guid=ticket_guid)
+            update_chunk_counter(s3key=ticket_chunk_s3_key,ticket_guid=ticket_guid,event=event)
  
         return {
             'statusCode':200,
@@ -101,9 +101,11 @@ def increment_completed_chunks(ticket_guid):
         ReturnValues="UPDATED_NEW"
     )
 
-def update_chunk_counter(s3key,ticket_guid):
+def update_chunk_counter(s3key,ticket_guid,event):
 
-# whom_ticket_chunk_counter
+# # whom_ticket_chunk_counter
+#     s3_errors = os.environ['S3ERRORS']
+#     s3_client = boto3.client('s3')
 
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
@@ -124,9 +126,12 @@ def update_chunk_counter(s3key,ticket_guid):
     object_cnt = response['Attributes']['object_cnt']
     completed_cnt = response['Attributes']['completed_cnt']
 
-    if completed_cnt>=object_cnt:
+    if completed_cnt==object_cnt:
         update_chunk_status(s3key=s3key)
         increment_completed_chunks(ticket_guid=ticket_guid)
+        # b = bytes(str(object_cnt)+'\n'+str(completed_cnt)+'\n'+str(event), 'utf-8')
+        # f = io.BytesIO(b)
+        # s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_reference_markoff_counter_check.log')    
 
 def get_chunk_metadata(s3key):
 
