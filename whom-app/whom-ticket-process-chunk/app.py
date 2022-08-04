@@ -65,7 +65,7 @@ def lambda_handler(event,context):
                     hex_dig = str(uuid.uuid4()) # hash_object.hexdigest()
                     targets3key=s3chunkguidpathonly +'/'+hex_dig+'.json'
                     land_set_file(set_nk=hex_dig,content=jreference_object,target_multi_s3key=targets3key)
-                    land_nk(hex_dig,s3chunkguid,targets3key)
+                    land_nk(hex_dig,s3chunkguid,targets3key,identity_object)
                     land_count(hex_dig,1,s3chunkguid)
                     update_ticket_status(ticket_guid=ticket_guid,to_status='PROCESSING')
                 elif isinstance(reference_object,list):
@@ -76,7 +76,7 @@ def lambda_handler(event,context):
                         hex_dig = str(uuid.uuid4()) # hash_object.hexdigest()
                         targets3key=s3chunkguidpathonly +'/'+hex_dig+'.json'
                         land_set_file(set_nk=hex_dig,content=j.dumps(set),target_multi_s3key=targets3key)
-                        land_nk(hex_dig,s3chunkguid,targets3key)
+                        land_nk(hex_dig,s3chunkguid,targets3key,identity_object)
                         land_count(hex_dig,set_cnt,s3chunkguid)
                         
 
@@ -182,7 +182,7 @@ def update_ticket_status(ticket_guid,to_status):
 
     return 0
 
-def land_nk(reference_object_hash,ticket_s3_key,set_s3_key):
+def land_nk(reference_object_hash,ticket_s3_key,set_s3_key,set_object_type):
 
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table('whom_ticket_stage_multi_reference_set')
@@ -192,6 +192,7 @@ def land_nk(reference_object_hash,ticket_s3_key,set_s3_key):
                 'set_nk':  reference_object_hash,
                 'ticket_chunk_s3key': ticket_s3_key,
                 'set_s3_key': set_s3_key,
+                'set_identity_object_type': set_object_type,
                 'set_status': 'Received'
                 }
 

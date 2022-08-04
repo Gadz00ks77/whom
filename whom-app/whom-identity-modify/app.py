@@ -90,9 +90,10 @@ def add_sqs_message(content,s3chunkkey):
     sqs = boto3.resource('sqs')
     queue = sqs.get_queue_by_name(QueueName='WhomReturns')
     response = queue.send_message(
-        MessageBody=content,
-        MessageGroupId=s3chunkkey,
-        MessageDeduplicationId=str(uuid.uuid4()))
+        MessageBody=content
+        # MessageGroupId=s3chunkkey,
+        # MessageDeduplicationId=str(uuid.uuid4()))
+    )
     messageid = response.get('MessageId')
     
     return messageid

@@ -16,9 +16,9 @@ def lambda_handler(event,context):
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
 
-    b = bytes(str(event), 'utf-8')
-    f = io.BytesIO(b)
-    s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_multi_process_reference.log')    
+    # b = bytes(str(event), 'utf-8')
+    # f = io.BytesIO(b)
+    # s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_multi_process_reference.log')    
 
     try:
         # BATCH SIZE IS ONE - SO THE INITIAL LOOP IS SIMPLY TO GET A SINGLE RECORD

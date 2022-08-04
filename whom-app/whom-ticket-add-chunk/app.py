@@ -51,7 +51,9 @@ def lambda_handler(event,context):
 
         # check if guid exists and is a valid 'BATCH' submit ticket
 
-        if check_ticket_guid(identityticketuuid) == 1:
+        chk_ticket_guid = check_ticket_guid(identityticketuuid)
+
+        if chk_ticket_guid['result'] == 1:
             return {
                 'statusCode': 400,
                 'body': j.dumps({
@@ -61,10 +63,12 @@ def lambda_handler(event,context):
                 })
             }
 
+        submit_method = chk_ticket_guid['submit_method']
+
         content = event['body']
         content_object = j.loads(event['body'])
 
-        valid_check = validate_content_schema(content_as_object=content_object)
+        valid_check = validate_content_schema(content_as_object=content_object,submit_method=submit_method)
         
         if valid_check['result'] == 1:
                 return {
@@ -97,7 +101,7 @@ def lambda_handler(event,context):
         }
 
     except Exception as e:
-        b = bytes(str(e), 'utf-8')
+        b = bytes(str(e)+'\n'+str(event), 'utf-8')
         f = io.BytesIO(b)
         s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_ticket_chunk_add_error.log')    
         return {
@@ -119,31 +123,55 @@ def put_to_s3(ticket_uuid,content,targets3key):
     s3_client.upload_fileobj(f, s3_landing, targets3key) 
 
 
-def validate_content_schema(content_as_object):
+def validate_content_schema(content_as_object,submit_method):
 
     output = {}
     cnt = 0
 
-    if isinstance(content_as_object,list):
-        for vals in content_as_object:
-            cnt = cnt + 1
-            if 'system reference' not in vals:
+    if submit_method in ['EVENT-SINGLE','BATCH-SINGLE']:
+
+        if isinstance(content_as_object,list):
+            
+            if len(content_as_object)==0:
                 output['result']=1
                 return output
-            if 'source' not in vals:
+            
+            for vals in content_as_object:
+                cnt = cnt + 1
+                if 'system reference' not in vals:
+                    output['result']=1
+                    return output
+                if 'source' not in vals:
+                    output['result']=1
+                    return output
+        elif isinstance(content_as_object,dict):
+            cnt = 1
+            if 'system reference' not in content_as_object:
                 output['result']=1
                 return output
-    elif isinstance(content_as_object,dict):
-        cnt = 1
-        if 'system reference' not in content_as_object:
+            if 'source' not in content_as_object:
+                output['result']=1
+                return output
+        else:
             output['result']=1
             return output
-        if 'source' not in content_as_object:
+
+    elif submit_method in ['EVENT-BYREFERENCE','BATCH-BYREFERENCE']:
+
+        if isinstance(content_as_object,list):
+
+            for objs in content_as_object:
+                for sets in objs['reference set']:
+                    cnt = cnt + 1
+        
+        elif isinstance(content_as_object,dict):
+
+            for sets in content_as_object['reference set']:
+                cnt = cnt + 1
+
+        else:
             output['result']=1
             return output
-    else:
-        output['result']=1
-        return output
 
     output['result']=0
     output['cnt']=cnt
@@ -161,10 +189,10 @@ def check_ticket_guid(ticket_guid):
     )
     
     if 'Item' in response:
-        if response['Item']['submit_method']['S']=='BATCH':
-            return 0
+        if response['Item']['submit_method']['S'] in ['BATCH-SINGLE','BATCH-BYREFERENCE']:
+            return {'result':0,'submit_method':response['Item']['submit_method']['S']}
         else: 
-            return 1
+            return {'result':1,'submit_method':'n/a'}
     else: 
         return 1
 
@@ -222,3 +250,4 @@ def add_chunk_counter(identityticketuuid,ticket_chunk_s3_key,objects):
                 }
 
     resp = table.put_item(Item=item)
+

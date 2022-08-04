@@ -18,7 +18,13 @@ def lambda_handler(event,context):
     now = datetime.now()
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
 
+    # b = bytes(str(event), 'utf-8')
+    # f = io.BytesIO(b)
+    # s3_client.upload_fileobj(f, s3_errors, f'whom_{dt_string}_ticket_creation.log')  
+
     try:
+
+
 
         identityobjectname = event['pathParameters']['identity-object-name']
         submitmethod = event['pathParameters']['method']
@@ -66,7 +72,7 @@ def lambda_handler(event,context):
         valid_check = validate_content_schema(content_as_object=content_object,submit_method = submitmethod)
         
         if valid_check['result'] == 1:
-                return {
+            return {
                     'statusCode': 400,
                     'body': j.dumps({
                         'result':'failure',
@@ -153,7 +159,7 @@ def validate_content_schema(content_as_object,submit_method):
     output = {}
     cnt = 0
 
-    if submit_method in ['EVENT-SIMPLE','BATCH-SIMPLE']:
+    if submit_method in ['EVENT-SINGLE','BATCH-SINGLE']:
 
         if isinstance(content_as_object,list):
             
@@ -185,13 +191,13 @@ def validate_content_schema(content_as_object,submit_method):
 
         if isinstance(content_as_object,list):
 
-            for sets in content_as_object:
-                for references in sets:
+            for objs in content_as_object:
+                for sets in objs['reference set']:
                     cnt = cnt + 1
         
         elif isinstance(content_as_object,dict):
 
-            for references in content_as_object:
+            for sets in content_as_object['reference set']:
                 cnt = cnt + 1
 
         else:
@@ -240,4 +246,5 @@ def add_chunk_counter(identityticketuuid,ticket_chunk_s3_key,objects):
                 }
 
     resp = table.put_item(Item=item)
+
 

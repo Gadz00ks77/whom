@@ -17,15 +17,26 @@ async def send_msg(event):
 
         for record in event['Records']:
             body = j.loads(record['body'])
-            # push_example_delete_me(output_obj=j.dumps(body))
             identity_object = body['identity_object']
             s3chunkguid =  body['ticket_chunk_s3key']
             reference_object = body['reference_object']
+            
+            request = 'MATCH'
+            set_nk = 'n/a'
+            if 'set_type' in body:
+                set_type = body['set_type']
+                if set_type == 'ADD':
+                    request = 'MATCH-REF'
+                    set_nk = body['set_nk']
+                elif set_type == 'FIRST':
+                    request = 'MATCH-REF-FIRST'
+                    set_nk = body['set_nk']
             for obj in reference_object:
                     obj['identity_object'] = identity_object
                     obj['ticket_chunk_s3key'] = s3chunkguid
+                    obj['set_nk'] = set_nk,
                     output_obj = {
-                        'request':'MATCH',
+                        'request':request,
                         'reference_object':obj
                     }
 
@@ -46,6 +57,7 @@ def lambda_handler(event, context):
     dt_string = now.strftime("%Y%m%d%H%M%S%f")[:-3]
 
     try:
+        # push_example_delete_me(output_obj=j.dumps(event))
         asyncio.run(send_msg(event=event))
 
 
